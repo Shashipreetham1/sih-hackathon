@@ -7,8 +7,8 @@
 
     <fragment
         android:id="@+id/loginFragment"
-        android:name="com.hackathon.attendlytics.LoginFragment" 
-        android:label="LoginFragment"
+        android:name="com.hackathon.attendlytics.LoginFragment"
+        android:label="@string/label_login_fragment"
         tools:layout="@layout/fragment_login">
         <action
             android:id="@+id/action_loginFragment_to_faceEnrollFragment"
@@ -24,13 +24,17 @@
     <fragment
         android:id="@+id/faceEnrollFragment"
         android:name="com.hackathon.attendlytics.FaceEnrollFragment"
-        android:label="FaceEnrollFragment"
-        tools:layout="@layout/fragment_face_enroll" />
+        android:label="@string/label_face_enroll_fragment"
+        tools:layout="@layout/fragment_face_enroll">
+        <action
+            android:id="@+id/action_faceEnrollFragment_to_captchaFragment"
+            app:destination="@id/captchaFragment" />
+    </fragment>
 
     <fragment
         android:id="@+id/teacherFragment"
         android:name="com.hackathon.attendlytics.TeacherFragment"
-        android:label="TeacherFragment"
+        android:label="@string/label_teacher_fragment"
         tools:layout="@layout/fragment_teacher">
         <action
             android:id="@+id/action_teacherFragment_to_resultFragment"
@@ -40,7 +44,7 @@
     <fragment
         android:id="@+id/studentFragment"
         android:name="com.hackathon.attendlytics.StudentFragment"
-        android:label="StudentFragment"
+        android:label="@string/label_student_fragment"
         tools:layout="@layout/fragment_student">
         <action
             android:id="@+id/action_studentFragment_to_resultFragment"
@@ -50,7 +54,23 @@
     <fragment
         android:id="@+id/resultFragment"
         android:name="com.hackathon.attendlytics.ResultFragment"
-        android:label="ResultFragment"
+        android:label="@string/label_result_fragment"
         tools:layout="@layout/fragment_result" />
+
+    <fragment
+        android:id="@+id/captchaFragment"
+        android:name="com.hackathon.attendlytics.CaptchaFragment"
+        android:label="@string/label_captcha_fragment"
+        tools:layout="@layout/fragment_captcha">
+        <action
+            android:id="@+id/action_captchaFragment_to_studentDashboardFragment"
+            app:destination="@id/studentDashboardFragment" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/studentDashboardFragment"
+        android:name="com.hackathon.attendlytics.StudentDashboardFragment"
+        android:label="@string/label_student_dashboard_fragment"
+        tools:layout="@layout/fragment_student_dashboard" />
 
 </navigation>
