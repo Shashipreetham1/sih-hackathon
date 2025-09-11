@@ -1,6 +1,6 @@
 plugins {
     alias(libs.plugins.android.application)
-    alias(libs.plugins.google.services) // Added for Firebase
+    id("com.google.gms.google-services") // Added for Firebase
 }
 
 android {
