@@ -1,4 +1,4 @@
-plugins {
+gitplugins {
     alias(libs.plugins.android.application)
     id("com.google.gms.google-services") // Added for Firebase
 }
