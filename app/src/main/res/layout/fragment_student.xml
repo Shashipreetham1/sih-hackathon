@@ -66,4 +66,32 @@
         android:layout_marginTop="8dp"
         tools:text="Status: Waiting to scan QR"/>
 
+    <TextView
+        android:id="@+id/textview_discovered_devices_label"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Discovered BLE Devices:"
+        android:textSize="14sp"
+        android:textStyle="bold"
+        android:layout_marginTop="16dp"
+        android:layout_marginBottom="8dp"/>
+
+    <Button
+        android:id="@+id/button_refresh_devices"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Refresh Devices"
+        android:layout_marginBottom="8dp"/>
+
+    <ListView
+        android:id="@+id/listview_discovered_devices"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:layout_marginTop="8dp"
+        android:background="@android:color/white"
+        android:divider="@android:color/darker_gray"
+        android:dividerHeight="1dp"
+        android:padding="8dp"/>
+
 </LinearLayout>
