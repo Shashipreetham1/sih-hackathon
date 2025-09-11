@@ -1,6 +1,6 @@
 plugins {
     alias(libs.plugins.android.application)
-    alias(libs.plugins.google.services) // Added for Firebase
+    id("com.google.gms.google-services") // Apply the plugin
 }
 
 android {
@@ -27,13 +27,12 @@ android {
         }
     }
     compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_11
-        targetCompatibility = JavaVersion.VERSION_11
+        sourceCompatibility = JavaVersion.VERSION_1_8
+        targetCompatibility = JavaVersion.VERSION_1_8
     }
-    // If you are using viewBinding or dataBinding, enable it here
-    // viewBinding {
-    //     enable = true
-    // }
+    buildFeatures {
+        viewBinding = true // Enable view binding
+    }
 }
 
 dependencies {
@@ -46,13 +45,23 @@ dependencies {
     implementation("androidx.navigation:navigation-fragment:2.7.7")
     implementation("androidx.navigation:navigation-ui:2.7.7")
 
-    // ZXing for QR Scanning
-    implementation("com.journeyapps:zxing-android-embedded:4.3.0")
+    // ZXing for QR Scanning (if you still need it directly, otherwise remove if only using a wrapper)
+    implementation("com.journeyapps:zxing-android-embedded:4.3.0") // This is a wrapper, usually enough
 
     // Firebase
-    implementation(platform("com.google.firebase:firebase-bom:34.2.0"))
+    implementation(platform("com.google.firebase:firebase-bom:34.2.0")) // Using the version from your file
     implementation("com.google.firebase:firebase-auth")
     implementation("com.google.firebase:firebase-firestore")
+
+    // ML Kit Face Detection
+    implementation("com.google.mlkit:face-detection:16.1.7")
+
+    // CameraX
+    val cameraxVersion = "1.5.0" // Use consistent versioning
+    implementation("androidx.camera:camera-core:$cameraxVersion")
+    implementation("androidx.camera:camera-camera2:$cameraxVersion")
+    implementation("androidx.camera:camera-lifecycle:$cameraxVersion")
+    implementation("androidx.camera:camera-view:$cameraxVersion")
 
     testImplementation(libs.junit)
     androidTestImplementation(libs.ext.junit)

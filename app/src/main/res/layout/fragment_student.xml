@@ -1,14 +1,69 @@
 <?xml version="1.0" encoding="utf-8"?>
-<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:gravity="center_horizontal"
+    android:padding="16dp"
     tools:context=".StudentFragment">
 
     <TextView
-        android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:gravity="center"
-        android:text="Student Screen" />
+        android:id="@+id/textview_student_title"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Student Screen"
+        android:textSize="24sp"
+        android:layout_marginTop="16dp"
+        android:layout_marginBottom="24dp"/>
 
-</FrameLayout>
+    <Button
+        android:id="@+id/button_scan_qr"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="1. Scan QR Code"
+        android:layout_marginBottom="16dp"/>
+
+    <TextView
+        android:id="@+id/textview_session_id_label"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Scanned SESSION_ID:"
+        android:textSize="16sp"/>
+
+    <TextView
+        android:id="@+id/textview_session_id"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:textSize="18sp"
+        android:textStyle="bold"
+        android:layout_marginBottom="24dp"
+        tools:text="SESSION_ID_HERE"/>
+
+    <Button
+        android:id="@+id/button_verify_proximity"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="2. Verify Proximity"
+        android:layout_marginBottom="16dp"
+        android:enabled="false"/> 
+
+    <ProgressBar
+        android:id="@+id/progressbar_scanning"
+        style="?android:attr/progressBarStyleHorizontal"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:indeterminate="true"
+        android:visibility="gone"
+        android:layout_marginBottom="8dp"
+        tools:visibility="visible"/>
+
+    <TextView
+        android:id="@+id/textview_status_message"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:textSize="16sp"
+        android:layout_marginTop="8dp"
+        tools:text="Status: Waiting to scan QR"/>
+
+</LinearLayout>

@@ -3,54 +3,38 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:id="@+id/nav_graph"
-    app:startDestination="@id/loginFragment">
+    app:startDestination="@id/loginFragment"> <!-- Assuming loginFragment is your start -->
 
     <fragment
         android:id="@+id/loginFragment"
-        android:name="com.hackathon.attendlytics.LoginFragment" 
-        android:label="LoginFragment"
+        android:name="com.hackathon.attendlytics.LoginFragment"
+        android:label="Login"
         tools:layout="@layout/fragment_login">
-        <action
-            android:id="@+id/action_loginFragment_to_faceEnrollFragment"
-            app:destination="@id/faceEnrollFragment" />
-        <action
-            android:id="@+id/action_loginFragment_to_teacherFragment"
-            app:destination="@id/teacherFragment" />
+        <!-- Action to go from Login to Student -->
         <action
             android:id="@+id/action_loginFragment_to_studentFragment"
             app:destination="@id/studentFragment" />
     </fragment>
 
     <fragment
-        android:id="@+id/faceEnrollFragment"
-        android:name="com.hackathon.attendlytics.FaceEnrollFragment"
-        android:label="FaceEnrollFragment"
-        tools:layout="@layout/fragment_face_enroll" />
-
-    <fragment
-        android:id="@+id/teacherFragment"
-        android:name="com.hackathon.attendlytics.TeacherFragment"
-        android:label="TeacherFragment"
-        tools:layout="@layout/fragment_teacher">
-        <action
-            android:id="@+id/action_teacherFragment_to_resultFragment"
-            app:destination="@id/resultFragment" />
-    </fragment>
-
-    <fragment
         android:id="@+id/studentFragment"
         android:name="com.hackathon.attendlytics.StudentFragment"
-        android:label="StudentFragment"
+        android:label="Student"
         tools:layout="@layout/fragment_student">
+        <!-- The problematic action -->
         <action
-            android:id="@+id/action_studentFragment_to_resultFragment"
-            app:destination="@id/resultFragment" />
+            android:id="@+id/studentToCaptcha"
+            app:destination="@id/captchaFragment" />
     </fragment>
 
     <fragment
-        android:id="@+id/resultFragment"
-        android:name="com.hackathon.attendlytics.ResultFragment"
-        android:label="ResultFragment"
-        tools:layout="@layout/fragment_result" />
+        android:id="@+id/captchaFragment"
+        android:name="com.hackathon.attendlytics.CaptchaFragment"
+        android:label="Captcha"
+        tools:layout="@layout/fragment_captcha" />
+
+    <!-- You can add back other fragments like FaceEnrollFragment, TeacherFragment, ResultFragment here
+         IF AND ONLY IF their class files and layout files exist and are error-free.
+         For now, keeping it minimal to solve this specific error. -->
 
 </navigation>
