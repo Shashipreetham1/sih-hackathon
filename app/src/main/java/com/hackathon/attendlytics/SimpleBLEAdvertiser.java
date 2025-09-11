@@ -10,6 +10,7 @@ import android.content.Context;
 import android.content.pm.PackageManager;
 import android.os.ParcelUuid;
 import android.util.Log;
+import androidx.core.app.ActivityCompat;
 import java.io.UnsupportedEncodingException;
 import java.util.UUID;
 
@@ -76,8 +77,8 @@ public class SimpleBLEAdvertiser {
             stopAdvertising();
         }
         
-        // Generate a random Service UUID for this session
-        this.serviceUUID = UUID.randomUUID();
+        // Use the predefined Service UUID instead of random to save space
+        this.serviceUUID = UUID.fromString(BLEConfig.SERVICE_UUID);
         
         Log.d(TAG, "🚀 Starting BLE advertising with Service UUID approach");
         Log.d(TAG, "📡 Service UUID: " + serviceUUID.toString());
@@ -93,32 +94,26 @@ public class SimpleBLEAdvertiser {
         // Create ParcelUuid for the service
         ParcelUuid serviceParcelUuid = new ParcelUuid(serviceUUID);
         
-        // Create advertising data with Service UUID and Service Data
+        // Create minimal advertising data - just the service UUID, no extra service data
         AdvertiseData.Builder dataBuilder = new AdvertiseData.Builder()
                 .addServiceUuid(serviceParcelUuid)  // Add the service UUID
-                .setIncludeDeviceName(false)        // Disable device name for privacy
-                .setIncludeTxPowerLevel(false);     // Save space
+                .setIncludeDeviceName(false)        // Disable device name to save space
+                .setIncludeTxPowerLevel(false);     // Disable power level to save space
         
-        // Add custom tag to Service Data
-        try {
-            byte[] serviceData = customTag.getBytes("UTF-8");
-            dataBuilder.addServiceData(serviceParcelUuid, serviceData);
-            Log.d(TAG, "✅ Service Data added: " + customTag);
-        } catch (UnsupportedEncodingException e) {
-            Log.e(TAG, "❌ Could not encode service data: " + e.getMessage());
-            return;
-        }
+        // SKIP adding service data to avoid DATA_TOO_LARGE error
+        // The Service UUID alone is enough for identification
+        Log.d(TAG, "✅ Using minimal advertising data (Service UUID only)");
         
         AdvertiseData advertiseData = dataBuilder.build();
         
         Log.d(TAG, "📡 Starting BLE advertisement with:");
         Log.d(TAG, "  - Service UUID: " + serviceUUID.toString());
-        Log.d(TAG, "  - Service Data: " + customTag);
+        Log.d(TAG, "  - Data Size: Minimal (Service UUID only)");
         Log.d(TAG, "  - Mode: LOW_LATENCY (fastest discovery)");
         Log.d(TAG, "  - Power: HIGH (maximum range)");
         Log.d(TAG, "  - Connectable: false (scan-only)");
         
-        // Start advertising
+        // Start advertising with minimal data to avoid size limits
         bluetoothLeAdvertiser.startAdvertising(settings, advertiseData, advertiseCallback);
     }
     
@@ -169,8 +164,19 @@ public class SimpleBLEAdvertiser {
             return false;
         }
         
+        // CRITICAL FIX: Check BLUETOOTH_ADVERTISE permission for Android 12+
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
+            if (ActivityCompat.checkSelfPermission(context, android.Manifest.permission.BLUETOOTH_ADVERTISE) 
+                != PackageManager.PERMISSION_GRANTED) {
+                Log.e(TAG, "❌ BLUETOOTH_ADVERTISE permission not granted - advertising will fail!");
+                return false;
+            } else {
+                Log.d(TAG, "✅ BLUETOOTH_ADVERTISE permission granted");
+            }
+        }
+        
         if (bluetoothLeAdvertiser == null) {
-            Log.e(TAG, "BluetoothLeAdvertiser not available");
+            Log.e(TAG, "BLE Advertising not supported on this device");
             return false;
         }
         

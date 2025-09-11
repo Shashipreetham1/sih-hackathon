@@ -3,10 +3,12 @@ package com.hackathon.attendlytics;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothManager;
 import android.content.Context;
+import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
 import android.os.Bundle;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.core.app.ActivityCompat;
 import androidx.fragment.app.Fragment;
 import android.util.Log;
 import android.view.LayoutInflater;
@@ -82,8 +84,69 @@ public class TeacherFragment extends Fragment {
         });
     }
 
+    private boolean hasBluetoothPermissions() {
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
+            boolean advertisePermission = ActivityCompat.checkSelfPermission(getContext(), 
+                android.Manifest.permission.BLUETOOTH_ADVERTISE) == PackageManager.PERMISSION_GRANTED;
+            boolean scanPermission = ActivityCompat.checkSelfPermission(getContext(), 
+                android.Manifest.permission.BLUETOOTH_SCAN) == PackageManager.PERMISSION_GRANTED;
+            boolean connectPermission = ActivityCompat.checkSelfPermission(getContext(), 
+                android.Manifest.permission.BLUETOOTH_CONNECT) == PackageManager.PERMISSION_GRANTED;
+            
+            Log.d(TAG, "Android 12+ permissions - ADVERTISE: " + advertisePermission + 
+                      ", SCAN: " + scanPermission + ", CONNECT: " + connectPermission);
+            
+            return advertisePermission && scanPermission && connectPermission;
+        } else {
+            boolean locationPermission = ActivityCompat.checkSelfPermission(getContext(), 
+                android.Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED;
+            
+            Log.d(TAG, "Android 11- permissions - LOCATION: " + locationPermission);
+            return locationPermission;
+        }
+    }
+
+    private void requestBluetoothPermissions() {
+        Log.d(TAG, "Requesting Bluetooth permissions from TeacherFragment");
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
+            requestPermissions(new String[]{
+                android.Manifest.permission.BLUETOOTH_ADVERTISE,
+                android.Manifest.permission.BLUETOOTH_SCAN,
+                android.Manifest.permission.BLUETOOTH_CONNECT,
+                android.Manifest.permission.ACCESS_FINE_LOCATION
+            }, 1001);
+        } else {
+            requestPermissions(new String[]{
+                android.Manifest.permission.ACCESS_FINE_LOCATION,
+                android.Manifest.permission.ACCESS_COARSE_LOCATION
+            }, 1001);
+        }
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        if (requestCode == 1001) {
+            if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                Toast.makeText(getContext(), "Bluetooth permissions granted! You can now start attendance.", Toast.LENGTH_SHORT).show();
+                Log.d(TAG, "Bluetooth permissions granted successfully");
+            } else {
+                Toast.makeText(getContext(), "Bluetooth permissions required for attendance functionality", Toast.LENGTH_LONG).show();
+                Log.w(TAG, "Bluetooth permissions denied by user");
+            }
+        }
+    }
+
     private void startAttendanceSession() {
         Log.d(TAG, "🚀 Starting attendance session");
+        
+        // CHECK PERMISSIONS FIRST - CRITICAL FIX
+        if (!hasBluetoothPermissions()) {
+            Toast.makeText(getContext(), "❌ Bluetooth permissions required. Please grant permissions first.", Toast.LENGTH_LONG).show();
+            Log.w(TAG, "Attempting to start attendance without proper permissions - requesting permissions");
+            requestBluetoothPermissions();
+            return;
+        }
         
         GlobalBLEManager globalManager = GlobalBLEManager.getInstance();
         

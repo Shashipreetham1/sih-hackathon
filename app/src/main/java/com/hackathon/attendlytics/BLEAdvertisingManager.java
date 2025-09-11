@@ -10,6 +10,7 @@ import android.content.Context;
 import android.content.pm.PackageManager;
 import android.os.ParcelUuid;
 import android.util.Log;
+import androidx.core.app.ActivityCompat;
 import java.util.UUID;
 import java.io.UnsupportedEncodingException;
 
@@ -77,6 +78,17 @@ public class BLEAdvertisingManager {
         if (bluetoothAdapter == null || !bluetoothAdapter.isEnabled()) {
             Log.e(TAG, "Bluetooth is not available or not enabled");
             return false;
+        }
+        
+        // CRITICAL FIX: Check BLUETOOTH_ADVERTISE permission for Android 12+
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
+            if (ActivityCompat.checkSelfPermission(context, android.Manifest.permission.BLUETOOTH_ADVERTISE) 
+                != PackageManager.PERMISSION_GRANTED) {
+                Log.e(TAG, "❌ BLUETOOTH_ADVERTISE permission not granted - advertising will fail!");
+                return false;
+            } else {
+                Log.d(TAG, "✅ BLUETOOTH_ADVERTISE permission granted");
+            }
         }
         
         if (bluetoothLeAdvertiser == null) {

@@ -293,9 +293,10 @@ public class BLEDiagnosticsFragment extends Fragment implements BLEScannerManage
             // Android 12+
             boolean scanPermission = ActivityCompat.checkSelfPermission(getContext(), Manifest.permission.BLUETOOTH_SCAN) == PackageManager.PERMISSION_GRANTED;
             boolean connectPermission = ActivityCompat.checkSelfPermission(getContext(), Manifest.permission.BLUETOOTH_CONNECT) == PackageManager.PERMISSION_GRANTED;
-            hasPermissions = scanPermission && connectPermission;
+            boolean advertisePermission = ActivityCompat.checkSelfPermission(getContext(), Manifest.permission.BLUETOOTH_ADVERTISE) == PackageManager.PERMISSION_GRANTED;
+            hasPermissions = scanPermission && connectPermission && advertisePermission;
             
-            Log.d(TAG, "Android 12+ permissions - SCAN: " + scanPermission + ", CONNECT: " + connectPermission);
+            Log.d(TAG, "Android 12+ permissions - SCAN: " + scanPermission + ", CONNECT: " + connectPermission + ", ADVERTISE: " + advertisePermission);
         } else {
             // Android 11 and below
             boolean locationPermission = ActivityCompat.checkSelfPermission(getContext(), Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED;
@@ -314,6 +315,7 @@ public class BLEDiagnosticsFragment extends Fragment implements BLEScannerManage
             requestPermissions(new String[]{
                 Manifest.permission.BLUETOOTH_SCAN,
                 Manifest.permission.BLUETOOTH_CONNECT,
+                Manifest.permission.BLUETOOTH_ADVERTISE,  // CRITICAL: Added for advertising
                 Manifest.permission.ACCESS_FINE_LOCATION
             }, BLUETOOTH_PERMISSION_REQUEST_CODE);
         } else {
