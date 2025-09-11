@@ -35,6 +35,9 @@
         <action
             android:id="@+id/action_teacherFragment_to_resultFragment"
             app:destination="@id/resultFragment" />
+        <action
+            android:id="@+id/action_teacherFragment_to_bleDiagnosticsFragment"
+            app:destination="@id/bleDiagnosticsFragment" />
     </fragment>
 
     <fragment
@@ -52,5 +55,11 @@
         android:name="com.hackathon.attendlytics.ResultFragment"
         android:label="ResultFragment"
         tools:layout="@layout/fragment_result" />
+
+    <fragment
+        android:id="@+id/bleDiagnosticsFragment"
+        android:name="com.hackathon.attendlytics.BLEDiagnosticsFragment"
+        android:label="BLE Diagnostics"
+        tools:layout="@layout/fragment_ble_diagnostics" />
 
 </navigation>

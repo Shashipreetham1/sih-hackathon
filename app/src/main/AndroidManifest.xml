@@ -7,6 +7,13 @@
     <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" android:maxSdkVersion="30" />
     <!-- Required for advertising on Android 12 (API 31) and higher -->
     <uses-permission android:name="android.permission.BLUETOOTH_ADVERTISE" />
+    <!-- Required for scanning on Android 12 (API 31) and higher -->
+    <uses-permission android:name="android.permission.BLUETOOTH_SCAN" />
+    <!-- Required for connecting on Android 12 (API 31) and higher -->
+    <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
+    <!-- Location permissions required for BLE scanning on older Android versions -->
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
 
     <!-- Declare that the app uses BLE and it's required -->
     <uses-feature android:name="android.hardware.bluetooth_le" android:required="true"/>

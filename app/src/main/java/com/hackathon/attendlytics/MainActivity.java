@@ -23,6 +23,9 @@ public class MainActivity extends AppCompatActivity {
         // EdgeToEdge.enable(this); // Consider re-enabling later if needed
         setContentView(R.layout.activity_main);
 
+        // Initialize Global BLE Manager
+        GlobalBLEManager.getInstance().initialize(this);
+
         // Setup the Toolbar
         Toolbar toolbar = findViewById(R.id.toolbar);
         setSupportActionBar(toolbar);
@@ -59,5 +62,12 @@ public class MainActivity extends AppCompatActivity {
                     || super.onSupportNavigateUp();
         }
         return super.onSupportNavigateUp();
+    }
+    
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        // Clean up global BLE manager when app is destroyed
+        GlobalBLEManager.getInstance().cleanup();
     }
 }

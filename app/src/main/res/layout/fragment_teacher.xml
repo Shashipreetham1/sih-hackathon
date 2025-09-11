@@ -24,9 +24,20 @@
         android:layout_height="wrap_content"
         android:layout_marginTop="32dp"
         android:text="Start Attendance"
-        app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@+id/imageViewQrCode" />
+
+    <Button
+        android:id="@+id/buttonBLEDiagnostics"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="16dp"
+        android:text="🔧 BLE Diagnostics"
+        android:backgroundTint="@android:color/holo_orange_light"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/buttonStartAttendance" />
 
 </androidx.constraintlayout.widget.ConstraintLayout>
