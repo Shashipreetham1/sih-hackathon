@@ -1,0 +1,171 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:fillViewport="true">
+
+    <androidx.constraintlayout.widget.ConstraintLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:padding="24dp">
+
+        <!-- Header -->
+        <TextView
+            android:id="@+id/textViewProfileHeader"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:text="Complete Your Profile"
+            android:textSize="24sp"
+            android:textStyle="bold"
+            android:textColor="@color/design_default_color_primary"
+            android:gravity="center"
+            android:layout_marginBottom="8dp"
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent" />
+
+        <TextView
+            android:id="@+id/textViewProfileSubtitle"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:text="Please provide your student details"
+            android:textSize="16sp"
+            android:textColor="@color/design_default_color_on_secondary"
+            android:gravity="center"
+            android:layout_marginBottom="32dp"
+            app:layout_constraintTop_toBottomOf="@id/textViewProfileHeader"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent" />
+
+        <!-- Student Name -->
+        <com.google.android.material.textfield.TextInputLayout
+            android:id="@+id/textInputLayoutStudentName"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:hint="Full Name"
+            android:layout_marginBottom="16dp"
+            app:layout_constraintTop_toBottomOf="@id/textViewProfileSubtitle"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent">
+
+            <EditText
+                android:id="@+id/editTextStudentName"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:inputType="textPersonName|textCapWords"
+                android:maxLines="1" />
+
+        </com.google.android.material.textfield.TextInputLayout>
+
+        <!-- Student ID -->
+        <com.google.android.material.textfield.TextInputLayout
+            android:id="@+id/textInputLayoutStudentId"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:hint="Student ID (e.g., 23071A12A6)"
+            android:layout_marginBottom="16dp"
+            app:layout_constraintTop_toBottomOf="@id/textInputLayoutStudentName"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent">
+
+            <EditText
+                android:id="@+id/editTextStudentId"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:inputType="textCapCharacters"
+                android:maxLines="1" />
+
+        </com.google.android.material.textfield.TextInputLayout>
+
+        <!-- Department Spinner -->
+        <TextView
+            android:id="@+id/textViewDepartmentLabel"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:text="Department"
+            android:textSize="16sp"
+            android:textColor="@color/design_default_color_on_surface"
+            android:layout_marginBottom="8dp"
+            app:layout_constraintTop_toBottomOf="@id/textInputLayoutStudentId"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent" />
+
+        <Spinner
+            android:id="@+id/spinnerDepartment"
+            android:layout_width="0dp"
+            android:layout_height="48dp"
+            android:layout_marginBottom="16dp"
+            app:layout_constraintTop_toBottomOf="@id/textViewDepartmentLabel"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent" />
+
+        <!-- Year Spinner -->
+        <TextView
+            android:id="@+id/textViewYearLabel"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:text="Academic Year"
+            android:textSize="16sp"
+            android:textColor="@color/design_default_color_on_surface"
+            android:layout_marginBottom="8dp"
+            app:layout_constraintTop_toBottomOf="@id/spinnerDepartment"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent" />
+
+        <Spinner
+            android:id="@+id/spinnerYear"
+            android:layout_width="0dp"
+            android:layout_height="48dp"
+            android:layout_marginBottom="16dp"
+            app:layout_constraintTop_toBottomOf="@id/textViewYearLabel"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent" />
+
+        <!-- Section -->
+        <com.google.android.material.textfield.TextInputLayout
+            android:id="@+id/textInputLayoutSection"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:hint="Section (A, B, C, etc.)"
+            android:layout_marginBottom="32dp"
+            app:layout_constraintTop_toBottomOf="@id/spinnerYear"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent">
+
+            <EditText
+                android:id="@+id/editTextSection"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:inputType="textCapCharacters"
+                android:maxLength="1"
+                android:maxLines="1" />
+
+        </com.google.android.material.textfield.TextInputLayout>
+
+        <!-- Progress Bar -->
+        <ProgressBar
+            android:id="@+id/progressBarProfile"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:visibility="gone"
+            app:layout_constraintTop_toBottomOf="@id/textInputLayoutSection"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent" />
+
+        <!-- Save Profile Button -->
+        <Button
+            android:id="@+id/buttonSaveProfile"
+            android:layout_width="0dp"
+            android:layout_height="56dp"
+            android:text="Save Profile &amp; Continue"
+            android:textSize="16sp"
+            android:layout_marginTop="16dp"
+            app:layout_constraintTop_toBottomOf="@id/progressBarProfile"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintBottom_toBottomOf="parent" />
+
+    </androidx.constraintlayout.widget.ConstraintLayout>
+
+</ScrollView>

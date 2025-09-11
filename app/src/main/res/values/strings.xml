@@ -1,3 +1,14 @@
 <resources>
     <string name="app_name">Attendlytics</string>
+
+    <!-- Fragment Labels for ActionBar Titles -->
+    <string name="label_login_fragment">Login</string>
+    <string name="label_student_profile_setup_fragment">Profile Setup</string>
+    <string name="label_face_enroll_fragment">Face Enrollment</string>
+    <string name="label_teacher_fragment">Teacher Dashboard</string>
+    <string name="label_student_fragment">Student Dashboard</string> <!-- Consider a more specific name if needed -->
+    <string name="label_result_fragment">Results</string>
+    <string name="label_captcha_fragment">Verification</string>
+    <string name="label_student_dashboard_fragment">Student Dashboard</string>
+
 </resources>

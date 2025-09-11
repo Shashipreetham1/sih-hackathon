@@ -3,16 +3,102 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:id="@+id/nav_graph"
-    app:startDestination="@id/loginFragment">
+    app:startDestination="@id/roleSelectionFragment">
+
+    <fragment
+        android:id="@+id/roleSelectionFragment"
+        android:name="com.hackathon.attendlytics.RoleSelectionFragment"
+        android:label="Select Role"
+        tools:layout="@layout/fragment_role_selection">
+        <action
+            android:id="@+id/action_roleSelectionFragment_to_authSelectionFragment"
+            app:destination="@id/authSelectionFragment" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/authSelectionFragment"
+        android:name="com.hackathon.attendlytics.AuthSelectionFragment"
+        android:label="Authentication"
+        tools:layout="@layout/fragment_auth_selection">
+        <action
+            android:id="@+id/action_authSelectionFragment_to_signInFragment"
+            app:destination="@id/signInFragment" />
+        <action
+            android:id="@+id/action_authSelectionFragment_to_teacherSignInFragment"
+            app:destination="@id/teacherSignInFragment" />
+        <action
+            android:id="@+id/action_authSelectionFragment_to_loginFragment"
+            app:destination="@id/loginFragment" />
+        <action
+            android:id="@+id/action_authSelectionFragment_to_teacherRegistrationFragment"
+            app:destination="@id/teacherRegistrationFragment" />
+        <action
+            android:id="@+id/action_authSelectionFragment_to_roleSelectionFragment"
+            app:destination="@id/roleSelectionFragment" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/welcomeFragment"
+        android:name="com.hackathon.attendlytics.WelcomeFragment"
+        android:label="Welcome"
+        tools:layout="@layout/fragment_welcome">
+        <action
+            android:id="@+id/action_welcomeFragment_to_signInFragment"
+            app:destination="@id/signInFragment" />
+        <action
+            android:id="@+id/action_welcomeFragment_to_loginFragment"
+            app:destination="@id/loginFragment" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/signInFragment"
+        android:name="com.hackathon.attendlytics.SignInFragment"
+        android:label="Student Sign In"
+        tools:layout="@layout/fragment_sign_in">
+        <action
+            android:id="@+id/action_signInFragment_to_loginFragment"
+            app:destination="@id/loginFragment" />
+        <action
+            android:id="@+id/action_signInFragment_to_studentProfileSetupFragment"
+            app:destination="@id/studentProfileSetupFragment" />
+        <action
+            android:id="@+id/action_signInFragment_to_faceEnrollFragment"
+            app:destination="@id/faceEnrollFragment" />
+        <action
+            android:id="@+id/action_signInFragment_to_studentDashboardFragment"
+            app:destination="@id/studentDashboardFragment" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/teacherSignInFragment"
+        android:name="com.hackathon.attendlytics.TeacherSignInFragment"
+        android:label="Teacher Sign In"
+        tools:layout="@layout/fragment_teacher_sign_in">
+        <action
+            android:id="@+id/action_teacherSignInFragment_to_teacherFragment"
+            app:destination="@id/teacherFragment" />
+        <action
+            android:id="@+id/action_teacherSignInFragment_to_teacherDashboardFragment"
+            app:destination="@id/teacherDashboardFragment" />
+        <action
+            android:id="@+id/action_teacherSignInFragment_to_teacherProfileSetupFragment"
+            app:destination="@id/teacherProfileSetupFragment" />
+        <action
+            android:id="@+id/action_teacherSignInFragment_to_teacherRegistrationFragment"
+            app:destination="@id/teacherRegistrationFragment" />
+    </fragment>
 
     <fragment
         android:id="@+id/loginFragment"
-        android:name="com.hackathon.attendlytics.LoginFragment" 
-        android:label="LoginFragment"
+        android:name="com.hackathon.attendlytics.LoginFragment"
+        android:label="@string/label_login_fragment"
         tools:layout="@layout/fragment_login">
         <action
             android:id="@+id/action_loginFragment_to_faceEnrollFragment"
             app:destination="@id/faceEnrollFragment" />
+        <action
+            android:id="@+id/action_loginFragment_to_studentProfileSetupFragment"
+            app:destination="@id/studentProfileSetupFragment" />
         <action
             android:id="@+id/action_loginFragment_to_teacherFragment"
             app:destination="@id/teacherFragment" />
@@ -22,25 +108,72 @@
     </fragment>
 
     <fragment
+        android:id="@+id/studentProfileSetupFragment"
+        android:name="com.hackathon.attendlytics.StudentProfileSetupFragment"
+        android:label="Student Profile Setup"
+        tools:layout="@layout/fragment_student_profile_setup">
+        <action
+            android:id="@+id/action_studentProfileSetupFragment_to_faceEnrollFragment"
+            app:destination="@id/faceEnrollFragment" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/teacherProfileSetupFragment"
+        android:name="com.hackathon.attendlytics.TeacherProfileSetupFragment"
+        android:label="Teacher Profile Setup"
+        tools:layout="@layout/fragment_teacher_profile_setup">
+        <action
+            android:id="@+id/action_teacherProfileSetupFragment_to_teacherDashboardFragment"
+            app:destination="@id/teacherDashboardFragment" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/teacherRegistrationFragment"
+        android:name="com.hackathon.attendlytics.TeacherRegistrationFragment"
+        android:label="Teacher Registration"
+        tools:layout="@layout/fragment_teacher_registration">
+        <action
+            android:id="@+id/action_teacherRegistrationFragment_to_teacherSignInFragment"
+            app:destination="@id/teacherSignInFragment" />
+    </fragment>
+
+    <fragment
         android:id="@+id/faceEnrollFragment"
         android:name="com.hackathon.attendlytics.FaceEnrollFragment"
-        android:label="FaceEnrollFragment"
-        tools:layout="@layout/fragment_face_enroll" />
+        android:label="@string/label_face_enroll_fragment"
+        tools:layout="@layout/fragment_face_enroll">
+        <action
+            android:id="@+id/action_faceEnrollFragment_to_captchaFragment"
+            app:destination="@id/captchaFragment" />
+    </fragment>
 
     <fragment
         android:id="@+id/teacherFragment"
         android:name="com.hackathon.attendlytics.TeacherFragment"
-        android:label="TeacherFragment"
+        android:label="@string/label_teacher_fragment"
         tools:layout="@layout/fragment_teacher">
         <action
             android:id="@+id/action_teacherFragment_to_resultFragment"
             app:destination="@id/resultFragment" />
+        <action
+            android:id="@+id/action_teacherFragment_to_teacherDashboardFragment"
+            app:destination="@id/teacherDashboardFragment" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/teacherDashboardFragment"
+        android:name="com.hackathon.attendlytics.TeacherDashboardFragment"
+        android:label="Teacher Dashboard"
+        tools:layout="@layout/fragment_teacher_dashboard">
+        <action
+            android:id="@+id/action_teacherDashboardFragment_to_roleSelectionFragment"
+            app:destination="@id/roleSelectionFragment" />
     </fragment>
 
     <fragment
         android:id="@+id/studentFragment"
         android:name="com.hackathon.attendlytics.StudentFragment"
-        android:label="StudentFragment"
+        android:label="@string/label_student_fragment"
         tools:layout="@layout/fragment_student">
         <action
             android:id="@+id/action_studentFragment_to_resultFragment"
@@ -50,7 +183,27 @@
     <fragment
         android:id="@+id/resultFragment"
         android:name="com.hackathon.attendlytics.ResultFragment"
-        android:label="ResultFragment"
+        android:label="@string/label_result_fragment"
         tools:layout="@layout/fragment_result" />
+
+    <fragment
+        android:id="@+id/captchaFragment"
+        android:name="com.hackathon.attendlytics.CaptchaFragment"
+        android:label="@string/label_captcha_fragment"
+        tools:layout="@layout/fragment_captcha">
+        <action
+            android:id="@+id/action_captchaFragment_to_studentDashboardFragment"
+            app:destination="@id/studentDashboardFragment" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/studentDashboardFragment"
+        android:name="com.hackathon.attendlytics.StudentDashboardFragment"
+        android:label="@string/label_student_dashboard_fragment"
+        tools:layout="@layout/fragment_student_dashboard">
+        <action
+            android:id="@+id/action_studentDashboardFragment_to_roleSelectionFragment"
+            app:destination="@id/roleSelectionFragment" />
+    </fragment>
 
 </navigation>
