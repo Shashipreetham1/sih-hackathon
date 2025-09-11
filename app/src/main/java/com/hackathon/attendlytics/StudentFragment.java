@@ -393,20 +393,32 @@ public class StudentFragment extends Fragment {
         
         Log.d(TAG, "Step 2 Complete - BluetoothLeScanner initialized successfully");
         
-        // Step 3: Start teacher device detection with specific UUID
-        startTeacherDeviceDetection();
-        
-        // Also start general scan for debugging purposes
-        startGeneralBleScan();
+        try {
+            // Step 3: Start teacher device detection with specific UUID
+            Log.d(TAG, "Step 2→3 Transition: About to call startTeacherDeviceDetection()");
+            startTeacherDeviceDetection();
+            
+            // Also start general scan for debugging purposes
+            Log.d(TAG, "Step 2→3 Transition: About to call startGeneralBleScan()");
+            startGeneralBleScan();
+        } catch (Exception e) {
+            Log.e(TAG, "Step 2→3 Transition Failed: " + e.getMessage(), e);
+            binding.textviewStatusMessage.setText("Status: Failed to start scanning - " + e.getMessage());
+            binding.buttonVerifyProximity.setEnabled(true);
+            binding.progressbarScanning.setVisibility(View.GONE);
+        }
     }
 
     // Step 3: Device Detection Logic - Create ScanFilter with UUID and start scanning
     private void startTeacherDeviceDetection() {
+        Log.d(TAG, "Step 3: startTeacherDeviceDetection() method called");
+        
         if (isScanning) {
             Log.d(TAG, "Teacher device scan already in progress.");
             return;
         }
         
+        Log.d(TAG, "Step 3: Checking permissions...");
         if (ActivityCompat.checkSelfPermission(requireContext(), Manifest.permission.BLUETOOTH_SCAN) != PackageManager.PERMISSION_GRANTED && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             Log.e(TAG, "Step 3 Failed - BLUETOOTH_SCAN permission missing");
             binding.textviewStatusMessage.setText("Status: Step 3 Failed - Scan permission missing.");
@@ -423,6 +435,15 @@ public class StudentFragment extends Fragment {
         currentRSSI = 0;
         teacherDeviceCallbackTriggered = false;
         
+        Log.d(TAG, "Step 3: Checking Service UUID...");
+        if (scannedServiceUUID == null) {
+            Log.e(TAG, "Step 3 Failed - scannedServiceUUID is null! Cannot create scan filter.");
+            binding.textviewStatusMessage.setText("Status: Step 3 Failed - No Service UUID from QR code");
+            binding.buttonVerifyProximity.setEnabled(true);
+            binding.progressbarScanning.setVisibility(View.GONE);
+            return;
+        }
+        
         Log.d(TAG, "Step 3: Starting teacher device detection with Service UUID: " + scannedServiceUUID.getUuid().toString());
         Log.i(TAG, "=== TEACHER DEVICE DETECTION STARTED ===");
         Log.i(TAG, "Target Service UUID: " + scannedServiceUUID.getUuid().toString());
@@ -433,6 +454,15 @@ public class StudentFragment extends Fragment {
         ScanFilter teacherFilter = new ScanFilter.Builder()
                 .setServiceUuid(scannedServiceUUID)  // Filter for exact Service UUID match
                 .build();
+        
+        // TEMPORARY: Also create a fallback filter to test if any devices are detected
+        ScanFilter fallbackFilter = new ScanFilter.Builder()
+                .build(); // No filter - will detect all devices
+        
+        List<ScanFilter> filters = new ArrayList<>();
+        filters.add(teacherFilter);
+        // TEMPORARY: Add fallback filter for debugging
+        filters.add(fallbackFilter);
         
         // Set scan settings to LOW_LATENCY mode for fast detection
         ScanSettings scanSettings = new ScanSettings.Builder()
@@ -445,9 +475,11 @@ public class StudentFragment extends Fragment {
         binding.textviewStatusMessage.setText("Status: Step 3 - Scanning for teacher device with UUID: " + scannedServiceUUID.getUuid().toString());
         
         try {
-            // Start scanning with teacher device filter
-            bluetoothLeScanner.startScan(Collections.singletonList(teacherFilter), scanSettings, teacherDeviceCallback);
-            Log.d(TAG, "Step 3 - Teacher device scan started successfully");
+            // Start scanning with teacher device filter (including fallback)
+            bluetoothLeScanner.startScan(filters, scanSettings, teacherDeviceCallback);
+            Log.d(TAG, "Step 3 - Teacher device scan started successfully with " + filters.size() + " filters");
+            Log.d(TAG, "Scan filter: Service UUID = " + teacherFilter.getServiceUuid());
+            Log.d(TAG, "Scan settings: Mode = " + scanSettings.getScanMode());
         } catch (Exception e) {
             Log.e(TAG, "Step 3 Failed - Failed to start teacher device scan: " + e.getMessage());
             isScanning = false;
@@ -489,40 +521,56 @@ public class StudentFragment extends Fragment {
             }
             
             String deviceAddress = result.getDevice().getAddress();
+            String deviceName = result.getDevice().getName();
             currentRSSI = result.getRssi();
             
-            Log.d(TAG, "Step 3: Found device with matching Service UUID: " + deviceAddress + ", RSSI: " + currentRSSI);
+            Log.d(TAG, "Teacher callback: Found device " + deviceAddress + " (" + (deviceName != null ? deviceName : "Unknown") + "), RSSI: " + currentRSSI);
             
-            // Check Service Data contains "TEACHER" tag
-            byte[] serviceData = result.getScanRecord().getServiceData(scannedServiceUUID);
-            if (serviceData != null) {
-                String serviceDataString = new String(serviceData, StandardCharsets.UTF_8);
-                Log.d(TAG, "Step 3: Service data found: " + serviceDataString);
-                
-                // Verify Service Data contains "TEACHER" tag
-                if (serviceDataString.contains(TEACHER_TAG)) {
-                    Log.d(TAG, "Step 3 Complete - Teacher device found! Address: " + deviceAddress);
-                    teacherDeviceFound = true;
-                    teacherDeviceAddress = deviceAddress;
+            // Check if device has any service UUIDs
+            if (result.getScanRecord().getServiceUuids() != null) {
+                Log.d(TAG, "Device " + deviceAddress + " has " + result.getScanRecord().getServiceUuids().size() + " service UUIDs:");
+                for (ParcelUuid uuid : result.getScanRecord().getServiceUuids()) {
+                    Log.d(TAG, "  - " + uuid.getUuid().toString());
                     
-                    // Step 4: Proximity Verification - Measure RSSI value
-                    rssiValues.add(currentRSSI);
-                    
-                    requireActivity().runOnUiThread(() -> {
-                        binding.textviewStatusMessage.setText("Status: Step 3 Complete - Teacher found! Step 4 - Verifying proximity... (" + rssiValues.size() + " readings)");
-                    });
-                    
-                    // Collect multiple RSSI readings for accuracy
-                    if (rssiValues.size() >= 3) {
-                        // Stop scanning and evaluate proximity
-                        stopTeacherDeviceDetection();
-                        evaluateProximityAndSubmitAttendance();
+                    // Check if this matches our target UUID
+                    if (uuid.equals(scannedServiceUUID)) {
+                        Log.i(TAG, "★ FOUND TARGET UUID MATCH: " + deviceAddress);
+                        
+                        // Check Service Data contains "TEACHER" tag
+                        byte[] serviceData = result.getScanRecord().getServiceData(scannedServiceUUID);
+                        if (serviceData != null) {
+                            String serviceDataString = new String(serviceData, StandardCharsets.UTF_8);
+                            Log.d(TAG, "Step 3: Service data found: " + serviceDataString);
+                            
+                            // Verify Service Data contains "TEACHER" tag
+                            if (serviceDataString.contains(TEACHER_TAG)) {
+                                Log.d(TAG, "Step 3 Complete - Teacher device found! Address: " + deviceAddress);
+                                teacherDeviceFound = true;
+                                teacherDeviceAddress = deviceAddress;
+                                
+                                // Step 4: Proximity Verification - Measure RSSI value
+                                rssiValues.add(currentRSSI);
+                                
+                                requireActivity().runOnUiThread(() -> {
+                                    binding.textviewStatusMessage.setText("Status: Step 3 Complete - Teacher found! Step 4 - Verifying proximity... (" + rssiValues.size() + " readings)");
+                                });
+                                
+                                // Collect multiple RSSI readings for accuracy
+                                if (rssiValues.size() >= 3) {
+                                    // Stop scanning and evaluate proximity
+                                    stopTeacherDeviceDetection();
+                                    evaluateProximityAndSubmitAttendance();
+                                }
+                            } else {
+                                Log.d(TAG, "Step 3: Device found but service data doesn't contain TEACHER tag: " + serviceDataString);
+                            }
+                        } else {
+                            Log.d(TAG, "Step 3: Target UUID device found but no service data available");
+                        }
                     }
-                } else {
-                    Log.d(TAG, "Step 3: Device found but service data doesn't contain TEACHER tag: " + serviceDataString);
                 }
             } else {
-                Log.d(TAG, "Step 3: Device found but no service data available");
+                Log.d(TAG, "Device " + deviceAddress + " has no service UUIDs");
             }
         }
 
@@ -728,6 +776,8 @@ public class StudentFragment extends Fragment {
     // Old methods removed - using new teacher device detection workflow
 
     private void startGeneralBleScan() {
+        Log.d(TAG, "startGeneralBleScan() method called");
+        
         if (isGeneralScanning) {
             Log.d(TAG, "General scan already in progress.");
             return;
@@ -740,6 +790,7 @@ public class StudentFragment extends Fragment {
             return;
         }
         
+        Log.d(TAG, "General scan: Checking permissions...");
         if (ActivityCompat.checkSelfPermission(requireContext(), Manifest.permission.BLUETOOTH_SCAN) != PackageManager.PERMISSION_GRANTED && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             Log.w(TAG, "BLUETOOTH_SCAN permission missing for general scan.");
             binding.textviewStatusMessage.setText("Status: BLE scan permission missing");
