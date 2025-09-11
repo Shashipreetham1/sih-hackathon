@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="utf-8"?>
+<navigation xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/nav_graph"
+    app:startDestination="@id/loginFragment">
+
+    <fragment
+        android:id="@+id/loginFragment"
+        android:name="com.hackathon.attendlytics.LoginFragment" 
+        android:label="LoginFragment"
+        tools:layout="@layout/fragment_login">
+        <action
+            android:id="@+id/action_loginFragment_to_faceEnrollFragment"
+            app:destination="@id/faceEnrollFragment" />
+        <action
+            android:id="@+id/action_loginFragment_to_teacherFragment"
+            app:destination="@id/teacherFragment" />
+        <action
+            android:id="@+id/action_loginFragment_to_studentFragment"
+            app:destination="@id/studentFragment" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/faceEnrollFragment"
+        android:name="com.hackathon.attendlytics.FaceEnrollFragment"
+        android:label="FaceEnrollFragment"
+        tools:layout="@layout/fragment_face_enroll" />
+
+    <fragment
+        android:id="@+id/teacherFragment"
+        android:name="com.hackathon.attendlytics.TeacherFragment"
+        android:label="TeacherFragment"
+        tools:layout="@layout/fragment_teacher">
+        <action
+            android:id="@+id/action_teacherFragment_to_resultFragment"
+            app:destination="@id/resultFragment" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/studentFragment"
+        android:name="com.hackathon.attendlytics.StudentFragment"
+        android:label="StudentFragment"
+        tools:layout="@layout/fragment_student">
+        <action
+            android:id="@+id/action_studentFragment_to_resultFragment"
+            app:destination="@id/resultFragment" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/resultFragment"
+        android:name="com.hackathon.attendlytics.ResultFragment"
+        android:label="ResultFragment"
+        tools:layout="@layout/fragment_result" />
+
+</navigation>
