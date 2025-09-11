@@ -168,6 +168,9 @@
         <action
             android:id="@+id/action_teacherDashboardFragment_to_roleSelectionFragment"
             app:destination="@id/roleSelectionFragment" />
+        <action
+            android:id="@+id/action_teacherDashboardFragment_to_teacherFragment"
+            app:destination="@id/teacherFragment" />
     </fragment>
 
     <fragment
@@ -178,6 +181,22 @@
         <action
             android:id="@+id/action_studentFragment_to_resultFragment"
             app:destination="@id/resultFragment" />
+        <action
+            android:id="@+id/action_studentFragment_to_attendanceResultFragment"
+            app:destination="@id/attendanceResultFragment" />
+        <action
+            android:id="@+id/action_studentFragment_to_studentDashboardFragment"
+            app:destination="@id/studentDashboardFragment" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/attendanceResultFragment"
+        android:name="com.hackathon.attendlytics.AttendanceResultFragment"
+        android:label="Attendance Result"
+        tools:layout="@layout/fragment_attendance_result">
+        <action
+            android:id="@+id/action_attendanceResultFragment_to_studentFragment"
+            app:destination="@id/studentFragment" />
     </fragment>
 
     <fragment
@@ -204,6 +223,9 @@
         <action
             android:id="@+id/action_studentDashboardFragment_to_roleSelectionFragment"
             app:destination="@id/roleSelectionFragment" />
+        <action
+            android:id="@+id/action_studentDashboardFragment_to_studentFragment"
+            app:destination="@id/studentFragment" />
     </fragment>
 
 </navigation>

@@ -111,6 +111,8 @@ public class TeacherDashboardFragment extends Fragment {
     }
 
     private void markAttendance() {
-        Toast.makeText(getContext(), "Mark Attendance feature coming soon!", Toast.LENGTH_SHORT).show();
+        // Navigate to TeacherFragment where QR code generation and BLE broadcasting happens
+        NavHostFragment.findNavController(TeacherDashboardFragment.this)
+                .navigate(R.id.action_teacherDashboardFragment_to_teacherFragment);
     }
 }

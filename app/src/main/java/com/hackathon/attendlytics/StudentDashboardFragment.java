@@ -102,9 +102,15 @@ public class StudentDashboardFragment extends Fragment {
 
     private void viewAttendance() {
         Toast.makeText(getContext(), "View Attendance feature coming soon!", Toast.LENGTH_SHORT).show();
+        // TODO: Implement attendance history view
     }
 
     private void markAttendance() {
-        Toast.makeText(getContext(), "Mark Attendance feature coming soon!", Toast.LENGTH_SHORT).show();
+        try {
+            NavHostFragment.findNavController(StudentDashboardFragment.this)
+                    .navigate(R.id.action_studentDashboardFragment_to_studentFragment);
+        } catch (Exception e) {
+            Toast.makeText(getContext(), "Navigation error. Please try again.", Toast.LENGTH_SHORT).show();
+        }
     }
 }
