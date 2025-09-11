@@ -54,6 +54,10 @@ dependencies {
     implementation(platform("com.google.firebase:firebase-bom:34.2.0"))
     implementation("com.google.firebase:firebase-auth")
     implementation("com.google.firebase:firebase-firestore")
+    
+    // Firebase App Check for Play Integrity
+    implementation("com.google.firebase:firebase-appcheck-playintegrity")
+    debugImplementation("com.google.firebase:firebase-appcheck-debug")
 
     // CameraX and ML Kit Face Detection (Adding these now as planned earlier)
     implementation("androidx.camera:camera-core:1.5.0")

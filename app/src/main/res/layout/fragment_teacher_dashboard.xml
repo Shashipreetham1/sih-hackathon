@@ -6,7 +6,7 @@
     android:layout_height="match_parent"
     android:fillViewport="true"
     android:background="@android:color/white"
-    tools:context=".StudentDashboardFragment">
+    tools:context=".TeacherDashboardFragment">
 
     <androidx.constraintlayout.widget.ConstraintLayout
         android:layout_width="match_parent"
@@ -18,19 +18,19 @@
             android:id="@+id/textViewWelcome"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:text="Welcome, Student!"
+            android:text="Welcome, Teacher!"
             android:textSize="24sp"
             android:textStyle="bold"
-            android:textColor="@android:color/holo_blue_dark"
+            android:textColor="@android:color/holo_green_dark"
             android:gravity="center"
             android:layout_marginTop="32dp"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toTopOf="parent" />
 
-        <!-- Student Info Card -->
+        <!-- Teacher Info Card -->
         <androidx.cardview.widget.CardView
-            android:id="@+id/cardViewStudentInfo"
+            android:id="@+id/cardViewTeacherInfo"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_marginTop="24dp"
@@ -49,17 +49,17 @@
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="Student Information"
+                    android:text="Teacher Information"
                     android:textSize="18sp"
                     android:textStyle="bold"
                     android:textColor="@android:color/black"
                     android:layout_marginBottom="8dp" />
 
                 <TextView
-                    android:id="@+id/textViewStudentInfo"
+                    android:id="@+id/textViewTeacherInfo"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="Loading student information..."
+                    android:text="Loading teacher information..."
                     android:textSize="14sp"
                     android:textColor="@android:color/darker_gray"
                     android:lineSpacingExtra="4dp" />
@@ -68,18 +68,18 @@
 
         </androidx.cardview.widget.CardView>
 
-        <!-- Attendance Actions -->
+        <!-- Class Management Actions -->
         <TextView
             android:id="@+id/textViewActions"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Attendance Actions"
+            android:text="Class Management"
             android:textSize="18sp"
             android:textStyle="bold"
             android:textColor="@android:color/black"
             android:layout_marginTop="32dp"
             app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toBottomOf="@+id/cardViewStudentInfo" />
+            app:layout_constraintTop_toBottomOf="@+id/cardViewTeacherInfo" />
 
         <!-- Mark Attendance Button -->
         <com.google.android.material.button.MaterialButton
@@ -90,19 +90,36 @@
             android:text="Mark Attendance"
             android:textSize="16sp"
             android:textStyle="bold"
+            android:backgroundTint="@android:color/holo_green_dark"
             app:cornerRadius="8dp"
             app:icon="@android:drawable/ic_dialog_map"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toBottomOf="@+id/textViewActions" />
 
-        <!-- View Attendance Button -->
+        <!-- Manage Classes Button -->
         <com.google.android.material.button.MaterialButton
-            android:id="@+id/buttonViewAttendance"
+            android:id="@+id/buttonManageClasses"
             android:layout_width="0dp"
             android:layout_height="56dp"
             android:layout_marginTop="16dp"
-            android:text="View Attendance Report"
+            android:text="Manage Classes"
+            android:textSize="16sp"
+            android:textStyle="bold"
+            android:backgroundTint="@android:color/holo_blue_dark"
+            app:cornerRadius="8dp"
+            app:icon="@android:drawable/ic_menu_manage"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toBottomOf="@+id/buttonMarkAttendance" />
+
+        <!-- View Reports Button -->
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/buttonViewReports"
+            android:layout_width="0dp"
+            android:layout_height="56dp"
+            android:layout_marginTop="16dp"
+            android:text="View Attendance Reports"
             android:textSize="16sp"
             android:textStyle="bold"
             app:cornerRadius="8dp"
@@ -110,7 +127,7 @@
             style="@style/Widget.MaterialComponents.Button.OutlinedButton"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toBottomOf="@+id/buttonMarkAttendance" />
+            app:layout_constraintTop_toBottomOf="@+id/buttonManageClasses" />
 
         <!-- Sign Out Button -->
         <com.google.android.material.button.MaterialButton
@@ -128,7 +145,7 @@
             app:layout_constraintBottom_toBottomOf="parent"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toBottomOf="@+id/buttonViewAttendance" />
+            app:layout_constraintTop_toBottomOf="@+id/buttonViewReports" />
 
     </androidx.constraintlayout.widget.ConstraintLayout>
 

@@ -18,15 +18,15 @@ import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.FirebaseFirestore;
 
-public class StudentDashboardFragment extends Fragment {
+public class TeacherDashboardFragment extends Fragment {
 
-    private TextView textViewWelcome, textViewStudentInfo;
-    private Button buttonSignOut, buttonViewAttendance, buttonMarkAttendance;
+    private TextView textViewWelcome, textViewTeacherInfo;
+    private Button buttonSignOut, buttonManageClasses, buttonViewReports, buttonMarkAttendance;
     
     private FirebaseAuth mAuth;
     private FirebaseFirestore db;
 
-    public StudentDashboardFragment() {
+    public TeacherDashboardFragment() {
         // Required empty public constructor
     }
 
@@ -40,7 +40,7 @@ public class StudentDashboardFragment extends Fragment {
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container,
                              Bundle savedInstanceState) {
-        return inflater.inflate(R.layout.fragment_student_dashboard, container, false);
+        return inflater.inflate(R.layout.fragment_teacher_dashboard, container, false);
     }
 
     @Override
@@ -49,42 +49,44 @@ public class StudentDashboardFragment extends Fragment {
 
         // Initialize views
         textViewWelcome = view.findViewById(R.id.textViewWelcome);
-        textViewStudentInfo = view.findViewById(R.id.textViewStudentInfo);
+        textViewTeacherInfo = view.findViewById(R.id.textViewTeacherInfo);
         buttonSignOut = view.findViewById(R.id.buttonSignOut);
-        buttonViewAttendance = view.findViewById(R.id.buttonViewAttendance);
+        buttonManageClasses = view.findViewById(R.id.buttonManageClasses);
+        buttonViewReports = view.findViewById(R.id.buttonViewReports);
         buttonMarkAttendance = view.findViewById(R.id.buttonMarkAttendance);
 
         // Set click listeners
         buttonSignOut.setOnClickListener(v -> signOut());
-        buttonViewAttendance.setOnClickListener(v -> viewAttendance());
+        buttonManageClasses.setOnClickListener(v -> manageClasses());
+        buttonViewReports.setOnClickListener(v -> viewReports());
         buttonMarkAttendance.setOnClickListener(v -> markAttendance());
 
-        // Load user data
-        loadUserData();
+        // Load teacher data
+        loadTeacherData();
     }
 
-    private void loadUserData() {
+    private void loadTeacherData() {
         FirebaseUser user = mAuth.getCurrentUser();
         if (user != null) {
-            db.collection("users").document(user.getUid())
+            db.collection("teachers").document(user.getUid())
                     .get()
                     .addOnSuccessListener(documentSnapshot -> {
                         if (documentSnapshot.exists()) {
-                            String studentName = documentSnapshot.getString("studentName");
-                            String studentId = documentSnapshot.getString("studentId");
+                            String teacherName = documentSnapshot.getString("teacherName");
+                            String employeeId = documentSnapshot.getString("employeeId");
                             String department = documentSnapshot.getString("department");
-                            String year = documentSnapshot.getString("year");
-                            String section = documentSnapshot.getString("section");
+                            String subject = documentSnapshot.getString("subject");
+                            String phoneNumber = documentSnapshot.getString("phoneNumber");
 
-                            textViewWelcome.setText("Welcome, " + (studentName != null ? studentName : "Student") + "!");
+                            textViewWelcome.setText("Welcome, " + (teacherName != null ? teacherName : "Teacher") + "!");
                             
                             StringBuilder info = new StringBuilder();
-                            if (studentId != null) info.append("ID: ").append(studentId).append("\n");
+                            if (employeeId != null) info.append("Employee ID: ").append(employeeId).append("\n");
                             if (department != null) info.append("Department: ").append(department).append("\n");
-                            if (year != null) info.append("Year: ").append(year).append("\n");
-                            if (section != null) info.append("Section: ").append(section);
+                            if (subject != null) info.append("Subject: ").append(subject).append("\n");
+                            if (phoneNumber != null) info.append("Phone: ").append(phoneNumber);
                             
-                            textViewStudentInfo.setText(info.toString());
+                            textViewTeacherInfo.setText(info.toString());
                         }
                     })
                     .addOnFailureListener(e -> {
@@ -96,12 +98,16 @@ public class StudentDashboardFragment extends Fragment {
     private void signOut() {
         mAuth.signOut();
         Toast.makeText(getContext(), "Signed out successfully", Toast.LENGTH_SHORT).show();
-        NavHostFragment.findNavController(StudentDashboardFragment.this)
-                .navigate(R.id.action_studentDashboardFragment_to_roleSelectionFragment);
+        NavHostFragment.findNavController(TeacherDashboardFragment.this)
+                .navigate(R.id.action_teacherDashboardFragment_to_roleSelectionFragment);
     }
 
-    private void viewAttendance() {
-        Toast.makeText(getContext(), "View Attendance feature coming soon!", Toast.LENGTH_SHORT).show();
+    private void manageClasses() {
+        Toast.makeText(getContext(), "Manage Classes feature coming soon!", Toast.LENGTH_SHORT).show();
+    }
+
+    private void viewReports() {
+        Toast.makeText(getContext(), "View Reports feature coming soon!", Toast.LENGTH_SHORT).show();
     }
 
     private void markAttendance() {

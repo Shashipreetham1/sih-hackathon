@@ -45,6 +45,7 @@ public class LoginFragment extends Fragment {
     private String validatedPhoneNumber;
     private String validatedEmail;
     private String emailOtpCode; // Store generated email OTP
+    private String userRole;
 
     public LoginFragment() {
         // Required empty public constructor
@@ -55,6 +56,13 @@ public class LoginFragment extends Fragment {
         super.onCreate(savedInstanceState);
         mAuth = FirebaseAuth.getInstance();
         db = FirebaseFirestore.getInstance();
+        
+        // Get role from arguments
+        if (getArguments() != null) {
+            userRole = getArguments().getString("userRole", "student");
+        } else {
+            userRole = "student"; // Default to student
+        }
     }
 
     @Override
@@ -97,58 +105,27 @@ public class LoginFragment extends Fragment {
             phoneNumber = "+91" + phoneNumber; // Default to India
         }
 
-        // TESTING BYPASS: Check for test numbers to avoid billing issues
-        if (isTestPhoneNumber(phoneNumber)) {
-            handleTestPhoneNumber(phoneNumber);
-            return;
-        }
-
         validatedPhoneNumber = phoneNumber; // Store for later use
         progressBarLogin.setVisibility(View.VISIBLE);
         editTextPhoneNumber.setEnabled(false);
         buttonSendOtp.setEnabled(false);
 
+        Log.d(TAG, "Sending OTP to: " + phoneNumber);
+
         PhoneAuthOptions options = PhoneAuthOptions.newBuilder(mAuth)
                 .setPhoneNumber(phoneNumber)       // Phone number to verify
                 .setTimeout(60L, TimeUnit.SECONDS) // Timeout and unit
-                .setActivity(requireActivity())                 // (optional) Activity for callback binding
-                                                                // If no activity is passed, reCAPTCHA verification can not be used.
+                .setActivity(requireActivity())    // Activity for callback binding
                 .setCallbacks(mCallbacks)          // OnVerificationStateChangedCallbacks
                 .build();
         PhoneAuthProvider.verifyPhoneNumber(options);
-    }
-
-    // Helper method to check if it's a test phone number
-    private boolean isTestPhoneNumber(String phoneNumber) {
-        // Add test phone numbers here to bypass Firebase billing
-        return phoneNumber.equals("+919876543210") || 
-               phoneNumber.equals("+911234567890") ||
-               phoneNumber.equals("+911111111111") ||
-               phoneNumber.equals("+918309505239"); // Your number for testing
-    }
-
-    // Handle test phone numbers without Firebase
-    private void handleTestPhoneNumber(String phoneNumber) {
-        Log.d(TAG, "Using test phone number: " + phoneNumber);
-        validatedPhoneNumber = phoneNumber;
-        
-        // Simulate OTP sent
-        editTextOtp.setVisibility(View.VISIBLE);
-        buttonVerifyOtp.setVisibility(View.VISIBLE);
-        editTextPhoneNumber.setEnabled(false);
-        buttonSendOtp.setEnabled(false);
-        
-        // Set a dummy verification ID for test
-        mVerificationId = "test_verification_id";
-        
-        Toast.makeText(getContext(), "Test mode: Use OTP 123456", Toast.LENGTH_LONG).show();
     }
 
     private final PhoneAuthProvider.OnVerificationStateChangedCallbacks mCallbacks =
             new PhoneAuthProvider.OnVerificationStateChangedCallbacks() {
                 @Override
                 public void onVerificationCompleted(@NonNull PhoneAuthCredential credential) {
-                    Log.d(TAG, "onVerificationCompleted:" + credential);
+                    Log.d(TAG, "onVerificationCompleted - Auto verification successful");
                     progressBarLogin.setVisibility(View.GONE);
                     signInWithPhoneAuthCredential(credential);
                 }
@@ -159,12 +136,17 @@ public class LoginFragment extends Fragment {
                     progressBarLogin.setVisibility(View.GONE);
                     editTextPhoneNumber.setEnabled(true);
                     buttonSendOtp.setEnabled(true);
-                    Toast.makeText(getContext(), "Verification failed: " + e.getMessage(), Toast.LENGTH_LONG).show();
+                    
+                    String errorMessage = "Verification failed. Please try again.";
+                    if (e.getMessage() != null) {
+                        errorMessage = e.getMessage();
+                    }
+                    Toast.makeText(getContext(), errorMessage, Toast.LENGTH_LONG).show();
                 }
 
                 @Override
                 public void onCodeSent(@NonNull String verificationId, @NonNull PhoneAuthProvider.ForceResendingToken token) {
-                    Log.d(TAG, "onCodeSent:" + verificationId);
+                    Log.d(TAG, "onCodeSent: OTP sent successfully. VerificationId: " + verificationId);
                     progressBarLogin.setVisibility(View.GONE);
                     mVerificationId = verificationId;
                     mResendToken = token;
@@ -173,7 +155,7 @@ public class LoginFragment extends Fragment {
                     buttonVerifyOtp.setVisibility(View.VISIBLE);
                     editTextPhoneNumber.setEnabled(false);
                     buttonSendOtp.setEnabled(false);
-                    Toast.makeText(getContext(), "OTP Sent", Toast.LENGTH_SHORT).show();
+                    Toast.makeText(getContext(), "OTP sent to your phone", Toast.LENGTH_SHORT).show();
                 }
             };
 
@@ -184,24 +166,15 @@ public class LoginFragment extends Fragment {
             return;
         }
 
-        progressBarLogin.setVisibility(View.VISIBLE);
-
-        // Handle test mode OTP
-        if (mVerificationId != null && mVerificationId.equals("test_verification_id")) {
-            if (code.equals("123456")) {
-                // Simulate successful verification for test
-                progressBarLogin.setVisibility(View.GONE);
-                Toast.makeText(getContext(), "Test OTP verified successfully!", Toast.LENGTH_SHORT).show();
-                proceedToEmailValidation();
-                return;
-            } else {
-                progressBarLogin.setVisibility(View.GONE);
-                Toast.makeText(getContext(), "Invalid test OTP. Use 123456", Toast.LENGTH_SHORT).show();
-                return;
-            }
+        if (mVerificationId == null) {
+            Toast.makeText(getContext(), "Verification ID not received. Please try sending OTP again.", Toast.LENGTH_SHORT).show();
+            return;
         }
 
-        // Normal Firebase OTP verification
+        progressBarLogin.setVisibility(View.VISIBLE);
+        Log.d(TAG, "Verifying OTP: " + code);
+
+        // Firebase OTP verification for all numbers
         PhoneAuthCredential credential = PhoneAuthProvider.getCredential(mVerificationId, code);
         signInWithPhoneAuthCredential(credential);
     }
@@ -301,19 +274,53 @@ public class LoginFragment extends Fragment {
         FirebaseUser currentUser = mAuth.getCurrentUser();
         if (currentUser != null && validatedPhoneNumber != null) {
             String uid = currentUser.getUid();
+            
+            // Create comprehensive student registration data
             Map<String, Object> userData = new HashMap<>();
+            
+            // Basic authentication details
+            userData.put("uid", uid);
             userData.put("phone", validatedPhoneNumber);
-            userData.put("email", validatedEmail); // Use validated email
+            userData.put("email", validatedEmail);
+            
+            // Registration details
+            userData.put("registrationTimestamp", System.currentTimeMillis());
+            userData.put("registrationDate", new java.util.Date());
+            userData.put("accountStatus", "active");
+            userData.put("registrationMethod", "phone_email_verification");
+            
+            // Student profile data (to be filled in profile setup)
+            userData.put("profileCompleted", false);
+            userData.put("studentName", "");
+            userData.put("studentId", "");
+            userData.put("department", "");
+            userData.put("year", "");
+            userData.put("section", "");
+            
+            // Face enrollment status
+            userData.put("faceEnrolled", false);
+            userData.put("faceEnrollmentTimestamp", null);
+            
+            // Attendance tracking
+            userData.put("totalAttendance", 0);
+            userData.put("lastAttendanceDate", null);
+            
+            // Device and session info
+            userData.put("lastLoginTimestamp", System.currentTimeMillis());
+            userData.put("deviceInfo", android.os.Build.MODEL + " " + android.os.Build.VERSION.RELEASE);
+            
+            Log.d(TAG, "Storing comprehensive user data for UID: " + uid);
+            Log.d(TAG, "Phone: " + validatedPhoneNumber + ", Email: " + validatedEmail);
 
             db.collection("users").document(uid)
                 .set(userData) // set() will create or overwrite
                 .addOnSuccessListener(aVoid -> {
                     progressBarLogin.setVisibility(View.GONE);
                     Log.d(TAG, "User data successfully written to Firestore for UID: " + uid);
-                    Toast.makeText(getContext(), "Email validated. Proceeding to face enrollment.", Toast.LENGTH_SHORT).show();
-                    // Navigate to FaceEnrollFragment
+                    Toast.makeText(getContext(), "Email validated. Please complete your profile.", Toast.LENGTH_SHORT).show();
+                    // Navigate to Student Profile Setup instead of face enrollment
                     NavHostFragment.findNavController(LoginFragment.this)
-                        .navigate(R.id.action_loginFragment_to_faceEnrollFragment);
+                        .navigate(R.id.action_loginFragment_to_studentProfileSetupFragment);
                 })
                 .addOnFailureListener(e -> {
                     progressBarLogin.setVisibility(View.GONE);
@@ -322,10 +329,10 @@ public class LoginFragment extends Fragment {
                     // Check if it's a Firestore permission error
                     if (e.getMessage() != null && e.getMessage().contains("PERMISSION_DENIED")) {
                         Toast.makeText(getContext(), "Firestore not configured. Proceeding without saving to database.", Toast.LENGTH_LONG).show();
-                        Log.i(TAG, "Proceeding to face enrollment despite Firestore error");
+                        Log.i(TAG, "Proceeding to profile setup despite Firestore error");
                         // Proceed anyway for development
                         NavHostFragment.findNavController(LoginFragment.this)
-                            .navigate(R.id.action_loginFragment_to_faceEnrollFragment);
+                            .navigate(R.id.action_loginFragment_to_studentProfileSetupFragment);
                     } else {
                         Toast.makeText(getContext(), "Failed to save data: " + e.getMessage(), Toast.LENGTH_LONG).show();
                     }
