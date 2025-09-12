@@ -34,6 +34,8 @@ import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.FirebaseFirestore;
+import com.google.firebase.firestore.FieldValue;
+import com.google.firebase.Timestamp;
 import com.google.zxing.integration.android.IntentIntegrator;
 import com.google.zxing.integration.android.IntentResult;
 
@@ -111,6 +113,27 @@ public class StudentFragment extends Fragment {
         
         // Initialize handler
         scanHandler = new Handler();
+        
+        // Set up face verification result listener
+        getParentFragmentManager().setFragmentResultListener("faceVerificationResult", this, (requestKey, result) -> {
+            String sessionId = result.getString("sessionId");
+            String detectionMethod = result.getString("detectionMethod");
+            boolean faceVerified = result.getBoolean("faceVerified", false);
+            
+            Log.d(TAG, "Face verification result: " + faceVerified);
+            
+            if (sessionId != null && sessionId.equals(detectedSessionId)) {
+                // Update status based on verification result
+                if (faceVerified) {
+                    updateStatus("✅ Face verified! Marking attendance...");
+                } else {
+                    updateStatus("⚠️ Face verification skipped. Marking attendance...");
+                }
+                
+                // Proceed with attendance marking
+                markAttendanceWithProximity();
+            }
+        });
     }
 
     @Override
@@ -577,6 +600,22 @@ public class StudentFragment extends Fragment {
         textViewSessionId.setText("Class: " + classDisplay + " - " + subjectDisplay);
     }
 
+    private void navigateToFaceVerification() {
+        Bundle args = new Bundle();
+        args.putString("sessionId", detectedSessionId);
+        args.putString("detectionMethod", detectionMethod);
+        
+        try {
+            NavHostFragment.findNavController(this)
+                    .navigate(R.id.action_studentFragment_to_faceVerificationFragment, args);
+        } catch (Exception e) {
+            Log.e(TAG, "Navigation to face verification failed", e);
+            // If navigation fails, proceed without face verification
+            updateStatus("⚠️ Face verification unavailable. Proceeding with attendance...");
+            markAttendanceWithProximity();
+        }
+    }
+
     private void joinAttendanceSession() {
         FirebaseUser currentUser = mAuth.getCurrentUser();
         if (currentUser == null) {
@@ -589,6 +628,107 @@ public class StudentFragment extends Fragment {
             return;
         }
 
+        // Check if attendance window is currently active
+        checkAttendanceWindow();
+    }
+
+    private void checkAttendanceWindow() {
+        db.collection("sessions").document(detectedSessionId)
+                .get()
+                .addOnSuccessListener(documentSnapshot -> {
+                    if (documentSnapshot.exists()) {
+                        Boolean attendanceActive = documentSnapshot.getBoolean("attendanceActive");
+                        
+                        // Debug logging
+                        Log.d(TAG, "Session document exists. attendanceActive: " + attendanceActive);
+                        
+                        // Handle attendanceStartTime - it could be Timestamp, Date, or Long
+                        Long attendanceStartTime = null;
+                        Object startTimeObj = documentSnapshot.get("attendanceStartTime");
+                        
+                        Log.d(TAG, "attendanceStartTime object: " + startTimeObj);
+                        Log.d(TAG, "attendanceStartTime type: " + (startTimeObj != null ? startTimeObj.getClass().getName() : "null"));
+                        
+                        if (startTimeObj instanceof com.google.firebase.Timestamp) {
+                            // Convert Firebase Timestamp to milliseconds
+                            com.google.firebase.Timestamp timestamp = (com.google.firebase.Timestamp) startTimeObj;
+                            attendanceStartTime = timestamp.toDate().getTime();
+                            Log.d(TAG, "Converted Firebase Timestamp to milliseconds: " + attendanceStartTime);
+                        } else if (startTimeObj instanceof java.util.Date) {
+                            // Convert Date to milliseconds (fallback)
+                            java.util.Date date = (java.util.Date) startTimeObj;
+                            attendanceStartTime = date.getTime();
+                            Log.d(TAG, "Converted Date to milliseconds: " + attendanceStartTime);
+                        } else if (startTimeObj instanceof Long) {
+                            // Already a Long
+                            attendanceStartTime = (Long) startTimeObj;
+                            Log.d(TAG, "Already Long: " + attendanceStartTime);
+                        } else if (startTimeObj instanceof Number) {
+                            // Convert other number types to Long
+                            attendanceStartTime = ((Number) startTimeObj).longValue();
+                            Log.d(TAG, "Converted Number to Long: " + attendanceStartTime);
+                        } else {
+                            Log.w(TAG, "Unexpected attendanceStartTime type: " + (startTimeObj != null ? startTimeObj.getClass().getName() : "null"));
+                        }
+                        
+                        if (attendanceActive != null && attendanceActive) {
+                            Log.d(TAG, "Attendance is active, checking timing...");
+                            if (attendanceStartTime != null) {
+                                long currentTime = System.currentTimeMillis();
+                                long timeDiff = currentTime - attendanceStartTime;
+                                long fiveMinutesInMillis = 5 * 60 * 1000; // 5 minutes
+                                long clockToleranceMillis = 30 * 1000; // 30 seconds tolerance for clock differences
+                                
+                                Log.d(TAG, "Current time: " + currentTime);
+                                Log.d(TAG, "Start time: " + attendanceStartTime);
+                                Log.d(TAG, "Time difference: " + timeDiff + " ms");
+                                Log.d(TAG, "Five minutes limit: " + fiveMinutesInMillis + " ms");
+                                Log.d(TAG, "Clock tolerance: " + clockToleranceMillis + " ms");
+                                
+                                // Allow for small negative time differences due to clock sync issues
+                                if (timeDiff <= fiveMinutesInMillis && timeDiff >= -clockToleranceMillis) {
+                                    // Attendance window is active and within time limit (with tolerance)
+                                    Log.d(TAG, "✅ Time check passed, proceeding with attendance flow");
+                                    if (timeDiff < 0) {
+                                        Log.d(TAG, "⚠️ Small clock difference detected but within tolerance: " + timeDiff + " ms");
+                                    }
+                                    proceedWithAttendanceFlow();
+                                } else {
+                                    // Attendance window has expired or clock difference too large
+                                    if (timeDiff < -clockToleranceMillis) {
+                                        Log.w(TAG, "❌ Large negative time difference - significant clock sync issue: " + timeDiff + " ms");
+                                        updateStatus("❌ Device clock synchronization issue. Please check your device time.");
+                                    } else {
+                                        Log.w(TAG, "❌ Attendance window has expired. Time difference: " + timeDiff + " ms");
+                                        long remainingTime = fiveMinutesInMillis - timeDiff;
+                                        if (remainingTime < 0) {
+                                            long expiredBy = Math.abs(remainingTime);
+                                            updateStatus("❌ Attendance window expired " + (expiredBy / 1000) + " seconds ago");
+                                        } else {
+                                            updateStatus("❌ Attendance window has expired");
+                                        }
+                                    }
+                                }
+                            } else {
+                                Log.w(TAG, "❌ attendanceStartTime is null");
+                                updateStatus("❌ Invalid attendance session timing");
+                            }
+                        } else {
+                            // Attendance window is not active
+                            Log.w(TAG, "❌ Attendance is not active. attendanceActive: " + attendanceActive);
+                            updateStatus("❌ Attendance window is not currently active");
+                        }
+                    } else {
+                        updateStatus("❌ Session not found");
+                    }
+                })
+                .addOnFailureListener(e -> {
+                    Log.e(TAG, "Error checking attendance window", e);
+                    updateStatus("❌ Error checking attendance window");
+                });
+    }
+
+    private void proceedWithAttendanceFlow() {
         // Check if proximity verification is required (for QR scans)
         if ("QR Code".equals(detectionMethod)) {
             if (!proximityVerified) {
@@ -598,8 +738,9 @@ public class StudentFragment extends Fragment {
             }
         }
 
-        // Proceed with attendance marking
-        markAttendanceWithProximity();
+        // For all detection methods, require face verification after proximity check
+        updateStatus("🔍 Proceeding to face verification...");
+        navigateToFaceVerification();
     }
 
     private void startProximityVerification() {
@@ -653,8 +794,8 @@ public class StudentFragment extends Fragment {
                     if (getActivity() != null) {
                         getActivity().runOnUiThread(() -> {
                             updateProximityStatus("✅ Proximity verified (Signal: " + rssi + " dBm)", Color.GREEN);
-                            updateStatus("✅ Proximity verified! Marking attendance...");
-                            markAttendanceWithProximity();
+                            updateStatus("✅ Proximity verified! Proceeding to face verification...");
+                            proceedWithAttendanceFlow();
                         });
                     }
                 } else {

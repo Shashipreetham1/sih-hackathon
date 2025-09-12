@@ -12,6 +12,7 @@ import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
 import android.graphics.Color;
 import android.os.Bundle;
+import android.os.Handler;
 import android.os.ParcelUuid;
 import android.util.Log;
 import android.view.LayoutInflater;
@@ -65,9 +66,12 @@ public class TeacherFragment extends Fragment {
     private TextView textViewStatus;
     private TextView textViewAttendanceLabel;
     private TextView textViewAttendanceCount;
+    private TextView textViewAttendanceTimer;
     private ImageView imageViewQrCode;
     private Button buttonStartSession;
     private Button buttonStopSession;
+    private Button buttonStartAttendance;
+    private Button buttonStopAttendance;
     private ProgressBar progressBarSession;
     private RecyclerView recyclerViewAttendance;
 
@@ -90,6 +94,13 @@ public class TeacherFragment extends Fragment {
     // Attendance Management
     private AttendeeAdapter attendeeAdapter;
     private int attendeeCount = 0;
+
+    // Timer Management
+    private Handler attendanceTimer;
+    private Runnable timerRunnable;
+    private static final long ATTENDANCE_WINDOW_DURATION = 5 * 60 * 1000; // 5 minutes in milliseconds
+    private long attendanceStartTime;
+    private boolean isAttendanceActive = false;
 
     public TeacherFragment() {
         // Required empty public constructor
@@ -126,9 +137,12 @@ public class TeacherFragment extends Fragment {
         textViewStatus = view.findViewById(R.id.textViewStatus);
         textViewAttendanceLabel = view.findViewById(R.id.textViewAttendanceLabel);
         textViewAttendanceCount = view.findViewById(R.id.textViewAttendanceCount);
+        textViewAttendanceTimer = view.findViewById(R.id.textViewAttendanceTimer);
         imageViewQrCode = view.findViewById(R.id.imageViewQrCode);
         buttonStartSession = view.findViewById(R.id.buttonStartSession);
         buttonStopSession = view.findViewById(R.id.buttonStopSession);
+        buttonStartAttendance = view.findViewById(R.id.buttonStartAttendance);
+        buttonStopAttendance = view.findViewById(R.id.buttonStopAttendance);
         progressBarSession = view.findViewById(R.id.progressBarSession);
         recyclerViewAttendance = view.findViewById(R.id.recyclerViewAttendance);
 
@@ -136,11 +150,16 @@ public class TeacherFragment extends Fragment {
         attendeeAdapter = new AttendeeAdapter();
         recyclerViewAttendance.setLayoutManager(new LinearLayoutManager(getContext()));
         recyclerViewAttendance.setAdapter(attendeeAdapter);
+        
+        // Initialize timer handler
+        attendanceTimer = new Handler();
     }
 
     private void setupClickListeners() {
         buttonStartSession.setOnClickListener(v -> startSession());
         buttonStopSession.setOnClickListener(v -> stopSession());
+        buttonStartAttendance.setOnClickListener(v -> startAttendanceWindow());
+        buttonStopAttendance.setOnClickListener(v -> stopAttendanceWindow());
     }
 
     private void checkBluetoothSupport() {
@@ -643,8 +662,15 @@ public class TeacherFragment extends Fragment {
         if (getActivity() != null) {
             getActivity().runOnUiThread(() -> {
                 isSessionActive = false;
+                isAttendanceActive = false;
                 currentSessionId = null;
                 currentSessionRef = null;
+                
+                // Stop attendance timer if running
+                if (timerRunnable != null && attendanceTimer != null) {
+                    attendanceTimer.removeCallbacks(timerRunnable);
+                    timerRunnable = null;
+                }
                 
                 textViewSessionId.setText("No active session");
                 imageViewQrCode.setImageBitmap(null);
@@ -653,13 +679,172 @@ public class TeacherFragment extends Fragment {
                 updateButtonStates();
                 showAttendanceSection(false);
                 showProgress(false);
+                hideAttendanceTimer();
             });
+        }
+    }
+
+    private void startAttendanceWindow() {
+        if (!isSessionActive) {
+            Toast.makeText(getContext(), "Please start a session first", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        if (isAttendanceActive) {
+            Toast.makeText(getContext(), "Attendance window is already active", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        isAttendanceActive = true;
+        attendanceStartTime = System.currentTimeMillis();
+        
+        Log.d(TAG, "Starting attendance window for 5 minutes");
+        updateStatus("✅ Attendance window opened! Students can now mark attendance for 5 minutes.");
+        
+        // Update session in Firestore to indicate attendance is active
+        if (currentSessionRef != null) {
+            Map<String, Object> updates = new HashMap<>();
+            updates.put("attendanceActive", true);
+            updates.put("attendanceStartTime", new Date());
+            currentSessionRef.update(updates);
+        }
+        
+        updateAttendanceButtonStates();
+        showAttendanceTimer();
+        startTimer();
+        
+        Toast.makeText(getContext(), "📢 Attendance window opened for 5 minutes!", Toast.LENGTH_LONG).show();
+    }
+
+    private void stopAttendanceWindow() {
+        if (!isAttendanceActive) {
+            Toast.makeText(getContext(), "No attendance window is currently active", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        isAttendanceActive = false;
+        
+        Log.d(TAG, "Manually stopping attendance window");
+        updateStatus("🔒 Attendance window closed manually by teacher.");
+        
+        // Update session in Firestore
+        if (currentSessionRef != null) {
+            Map<String, Object> updates = new HashMap<>();
+            updates.put("attendanceActive", false);
+            updates.put("attendanceEndTime", new Date());
+            currentSessionRef.update(updates);
+        }
+        
+        stopTimer();
+        updateAttendanceButtonStates();
+        hideAttendanceTimer();
+        
+        Toast.makeText(getContext(), "🔒 Attendance window closed", Toast.LENGTH_SHORT).show();
+    }
+
+    private void startTimer() {
+        if (timerRunnable != null && attendanceTimer != null) {
+            attendanceTimer.removeCallbacks(timerRunnable);
+        }
+        
+        timerRunnable = new Runnable() {
+            @Override
+            public void run() {
+                if (!isAttendanceActive) {
+                    return;
+                }
+                
+                long elapsedTime = System.currentTimeMillis() - attendanceStartTime;
+                long remainingTime = ATTENDANCE_WINDOW_DURATION - elapsedTime;
+                
+                if (remainingTime <= 0) {
+                    // Time's up - automatically close attendance window
+                    isAttendanceActive = false;
+                    updateStatus("⏰ Attendance window closed automatically after 5 minutes.");
+                    
+                    // Update session in Firestore
+                    if (currentSessionRef != null) {
+                        Map<String, Object> updates = new HashMap<>();
+                        updates.put("attendanceActive", false);
+                        updates.put("attendanceEndTime", new Date());
+                        currentSessionRef.update(updates);
+                    }
+                    
+                    updateAttendanceButtonStates();
+                    hideAttendanceTimer();
+                    
+                    Toast.makeText(getContext(), "⏰ Attendance window closed - Time's up!", Toast.LENGTH_LONG).show();
+                } else {
+                    // Update timer display
+                    updateTimerDisplay(remainingTime);
+                    
+                    // Schedule next update in 1 second
+                    if (attendanceTimer != null) {
+                        attendanceTimer.postDelayed(this, 1000);
+                    }
+                }
+            }
+        };
+        
+        if (attendanceTimer != null) {
+            attendanceTimer.post(timerRunnable);
+        }
+    }
+
+    private void stopTimer() {
+        if (timerRunnable != null && attendanceTimer != null) {
+            attendanceTimer.removeCallbacks(timerRunnable);
+            timerRunnable = null;
+        }
+    }
+
+    private void updateTimerDisplay(long remainingTimeMs) {
+        long minutes = remainingTimeMs / 60000;
+        long seconds = (remainingTimeMs % 60000) / 1000;
+        
+        String timeText = String.format(Locale.getDefault(), "⏰ Time Remaining: %02d:%02d", minutes, seconds);
+        
+        if (textViewAttendanceTimer != null) {
+            textViewAttendanceTimer.setText(timeText);
+            
+            // Change color based on remaining time
+            if (remainingTimeMs <= 60000) { // Last minute - red
+                textViewAttendanceTimer.setTextColor(Color.RED);
+            } else if (remainingTimeMs <= 120000) { // Last 2 minutes - orange
+                textViewAttendanceTimer.setTextColor(Color.parseColor("#FF8800"));
+            } else { // Normal - green
+                textViewAttendanceTimer.setTextColor(Color.parseColor("#008800"));
+            }
+        }
+    }
+
+    private void showAttendanceTimer() {
+        if (textViewAttendanceTimer != null) {
+            textViewAttendanceTimer.setVisibility(View.VISIBLE);
+            textViewAttendanceTimer.setText("⏰ Time Remaining: 05:00");
+            textViewAttendanceTimer.setTextColor(Color.parseColor("#008800"));
+        }
+    }
+
+    private void hideAttendanceTimer() {
+        if (textViewAttendanceTimer != null) {
+            textViewAttendanceTimer.setVisibility(View.GONE);
+        }
+    }
+
+    private void updateAttendanceButtonStates() {
+        if (buttonStartAttendance != null) {
+            buttonStartAttendance.setEnabled(isSessionActive && !isAttendanceActive);
+        }
+        if (buttonStopAttendance != null) {
+            buttonStopAttendance.setEnabled(isSessionActive && isAttendanceActive);
         }
     }
 
     private void updateButtonStates() {
         buttonStartSession.setEnabled(!isSessionActive);
         buttonStopSession.setEnabled(isSessionActive);
+        updateAttendanceButtonStates();
     }
 
     private void updateStatus(String message) {

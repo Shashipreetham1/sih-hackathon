@@ -187,6 +187,34 @@
         <action
             android:id="@+id/action_studentFragment_to_studentDashboardFragment"
             app:destination="@id/studentDashboardFragment" />
+        <action
+            android:id="@+id/action_studentFragment_to_faceVerificationFragment"
+            app:destination="@id/faceVerificationFragment" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/faceVerificationFragment"
+        android:name="com.hackathon.attendlytics.FaceVerificationFragment"
+        android:label="Face Verification"
+        tools:layout="@layout/fragment_face_verification">
+        <action
+            android:id="@+id/action_faceVerificationFragment_to_attendanceResultFragment"
+            app:destination="@id/attendanceResultFragment" />
+        <action
+            android:id="@+id/action_faceVerificationFragment_to_studentFragment"
+            app:destination="@id/studentFragment" />
+        <argument
+            android:name="sessionId"
+            app:argType="string"
+            app:nullable="true" />
+        <argument
+            android:name="sessionName"
+            app:argType="string" 
+            app:nullable="true" />
+        <argument
+            android:name="teacherName"
+            app:argType="string"
+            app:nullable="true" />
     </fragment>
 
     <fragment
