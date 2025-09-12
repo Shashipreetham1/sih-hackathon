@@ -224,25 +224,78 @@ public class TeacherFragment extends Fragment {
             return;
         }
 
-        Map<String, Object> sessionData = new HashMap<>();
-        sessionData.put("sessionId", currentSessionId);
-        sessionData.put("teacherId", currentUser.getUid());
-        sessionData.put("teacherEmail", currentUser.getEmail());
-        sessionData.put("startTime", new Date());
-        sessionData.put("isActive", true);
-        sessionData.put("attendees", new HashMap<>());
+        // Get teacher profile details from Firestore to include in session
+        db.collection("teachers").document(currentUser.getUid())
+                .get()
+                .addOnSuccessListener(teacherDoc -> {
+                    String teacherName = "Unknown Teacher";
+                    String className = "Unknown Class";
+                    String subject = "Unknown Subject";
+                    
+                    if (teacherDoc.exists()) {
+                        teacherName = teacherDoc.getString("teacherName");
+                        className = teacherDoc.getString("department"); // Use 'department' field instead of 'className'
+                        subject = teacherDoc.getString("subjectCode"); // Use 'subjectCode' field instead of 'subject'
+                        
+                        if (teacherName == null) teacherName = currentUser.getEmail();
+                        if (className == null) className = "General Class";
+                        if (subject == null) subject = "General Subject";
+                    } else {
+                        // Use email as fallback for teacher name
+                        teacherName = currentUser.getEmail();
+                    }
 
-        currentSessionRef = db.collection("sessions").document(currentSessionId);
-        currentSessionRef.set(sessionData)
-                .addOnSuccessListener(aVoid -> {
-                    Log.d(TAG, "Session created successfully");
-                    startAttendanceListener();
-                    generateQRCode();
+                    Map<String, Object> sessionData = new HashMap<>();
+                    sessionData.put("sessionId", currentSessionId);
+                    sessionData.put("teacherId", currentUser.getUid());
+                    sessionData.put("teacherEmail", currentUser.getEmail());
+                    sessionData.put("teacherName", teacherName);
+                    sessionData.put("className", className); // Store department as className for consistency
+                    sessionData.put("subject", subject); // Store subjectCode as subject for consistency
+                    sessionData.put("startTime", new Date());
+                    sessionData.put("isActive", true);
+                    sessionData.put("attendees", new HashMap<>());
+
+                    currentSessionRef = db.collection("sessions").document(currentSessionId);
+                    currentSessionRef.set(sessionData)
+                            .addOnSuccessListener(aVoid -> {
+                                Log.d(TAG, "Session created successfully with teacher details");
+                                startAttendanceListener();
+                                generateQRCode();
+                            })
+                            .addOnFailureListener(e -> {
+                                Log.e(TAG, "Error creating session", e);
+                                updateStatus("Failed to create session: " + e.getMessage());
+                                showProgress(false);
+                            });
                 })
                 .addOnFailureListener(e -> {
-                    Log.e(TAG, "Error creating session", e);
-                    updateStatus("Failed to create session: " + e.getMessage());
-                    showProgress(false);
+                    Log.w(TAG, "Could not fetch teacher details, creating session with basic info", e);
+                    
+                    // Fallback: create session with basic info only
+                    Map<String, Object> sessionData = new HashMap<>();
+                    sessionData.put("sessionId", currentSessionId);
+                    sessionData.put("teacherId", currentUser.getUid());
+                    sessionData.put("teacherEmail", currentUser.getEmail());
+                    sessionData.put("teacherName", currentUser.getEmail());
+                    sessionData.put("className", "General Class");
+                    sessionData.put("subject", "General Subject");
+                    sessionData.put("startTime", new Date());
+                    sessionData.put("isActive", true);
+                    sessionData.put("attendees", new HashMap<>());
+
+                    currentSessionRef = db.collection("sessions").document(currentSessionId);
+                    currentSessionRef.set(sessionData)
+                            .addOnSuccessListener(aVoid -> {
+                                Log.d(TAG, "Session created successfully");
+                                startAttendanceListener();
+                                generateQRCode();
+                            })
+                            .addOnFailureListener(e2 -> {
+                                Log.e(TAG, "Error creating session", e2);
+                                updateStatus("Failed to create session: " + e2.getMessage());
+                                showProgress(false);
+                            });
                 });
     }
 
@@ -656,11 +709,20 @@ public class TeacherFragment extends Fragment {
                 
                 String studentId = (String) attendeeData.get("studentId");
                 String studentEmail = (String) attendeeData.get("studentEmail");
+                String studentName = (String) attendeeData.get("studentName");
+                String rollNumber = (String) attendeeData.get("rollNumber");
                 Date joinTime = attendeeData.get("joinTime") instanceof Date ? 
                     (Date) attendeeData.get("joinTime") : new Date();
                 String method = (String) attendeeData.get("method");
                 
-                attendeeList.add(new AttendeeAdapter.AttendeeInfo(studentId, studentEmail, joinTime, method));
+                // Debug logging to see what data we're getting
+                Log.d(TAG, "Processing attendee - studentId: " + studentId + 
+                          ", studentEmail: " + studentEmail + 
+                          ", studentName: " + studentName + 
+                          ", rollNumber: " + rollNumber + 
+                          ", method: " + method);
+                
+                attendeeList.add(new AttendeeAdapter.AttendeeInfo(studentId, studentEmail, studentName, rollNumber, joinTime, method));
             }
             
             // Sort by join time (most recent first)

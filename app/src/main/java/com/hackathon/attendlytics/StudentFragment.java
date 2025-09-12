@@ -84,6 +84,8 @@ public class StudentFragment extends Fragment {
     private String detectionMethod;
     private String teacherName;
     private String teacherEmail;
+    private String className;
+    private String subject;
     private boolean isScanning = false;
     
     // Proximity Verification
@@ -534,10 +536,13 @@ public class StudentFragment extends Fragment {
                 .addOnSuccessListener(documentSnapshot -> {
                     if (documentSnapshot.exists() && documentSnapshot.getBoolean("isActive") == Boolean.TRUE) {
                         // Session is valid and active
-                        teacherName = documentSnapshot.getString("teacherEmail");
+                        teacherName = documentSnapshot.getString("teacherName");
                         teacherEmail = documentSnapshot.getString("teacherEmail");
+                        className = documentSnapshot.getString("className"); // Keep as 'className' since session stores it this way
+                        subject = documentSnapshot.getString("subject"); // Keep as 'subject' since session stores it this way
                         
-                        textViewTeacherInfo.setText("Teacher: " + (teacherName != null ? teacherName : "Unknown"));
+                        // Update UI with detailed session information
+                        updateSessionDisplay();
                         updateStatus("✅ Valid session found! Ready to join attendance.");
                         
                         buttonJoinAttendance.setEnabled(true);
@@ -557,6 +562,19 @@ public class StudentFragment extends Fragment {
                     resetSessionState();
                     showProgress(false);
                 });
+    }
+
+    private void updateSessionDisplay() {
+        // Display teacher and class information
+        String teacherDisplay = teacherName != null ? teacherName : 
+                               (teacherEmail != null ? teacherEmail : "Unknown Teacher");
+        String classDisplay = className != null ? className : "Unknown Class";
+        String subjectDisplay = subject != null ? subject : "Unknown Subject";
+        
+        textViewTeacherInfo.setText("Teacher: " + teacherDisplay);
+        
+        // Update session ID display to be more user-friendly
+        textViewSessionId.setText("Class: " + classDisplay + " - " + subjectDisplay);
     }
 
     private void joinAttendanceSession() {
@@ -723,63 +741,163 @@ public class StudentFragment extends Fragment {
         showProgress(true);
         updateStatus("Marking attendance with proximity verification...");
 
-        // Create attendance record with proximity info
-        Map<String, Object> attendeeData = new HashMap<>();
-        attendeeData.put("studentId", currentUser.getUid());
-        attendeeData.put("studentEmail", currentUser.getEmail());
-        attendeeData.put("joinTime", new Date());
-        attendeeData.put("method", detectionMethod != null ? detectionMethod : "Unknown");
-        
-        // Add proximity verification details
-        if ("QR Code".equals(detectionMethod)) {
-            attendeeData.put("proximityVerified", proximityVerified);
-            attendeeData.put("signalStrength", lastRssiValue);
-        } else {
-            // For BLE detection, proximity is inherently verified
-            attendeeData.put("proximityVerified", true);
-            attendeeData.put("signalStrength", lastRssiValue);
-        }
-
-        // Add to session's attendees
-        db.collection("sessions").document(detectedSessionId)
-                .update("attendees." + currentUser.getUid(), attendeeData)
-                .addOnSuccessListener(aVoid -> {
-                    Log.d(TAG, "Attendance marked successfully with proximity verification");
-                    updateStatus("✅ Attendance marked successfully!");
+        // First, get student details from the students/users collection
+        db.collection("users").document(currentUser.getUid())
+                .get()
+                .addOnSuccessListener(studentDoc -> {
+                    String tempStudentName = "Unknown Student";
+                    String tempRollNumber = "Unknown";
                     
-                    // Navigate to result fragment
-                    Bundle bundle = new Bundle();
-                    bundle.putString("sessionId", detectedSessionId);
-                    bundle.putString("method", detectionMethod != null ? detectionMethod : "Unknown");
-                    bundle.putBoolean("success", true);
-                    
-                    try {
-                        NavHostFragment.findNavController(StudentFragment.this)
-                                .navigate(R.id.action_studentFragment_to_attendanceResultFragment, bundle);
-                    } catch (Exception e) {
-                        Log.e(TAG, "Navigation error", e);
-                        // Show success message if navigation fails
-                        updateStatus("✅ Attendance marked successfully! Session: " + detectedSessionId);
-                        showProgress(false);
+                    if (studentDoc.exists()) {
+                        tempStudentName = studentDoc.getString("studentName");
+                        tempRollNumber = studentDoc.getString("studentId"); // Use 'studentId' field from profile
+                        
+                        Log.d(TAG, "Retrieved student profile - Name: '" + tempStudentName + "', Roll/ID: '" + tempRollNumber + "'");
+                        
+                        if (tempStudentName == null) tempStudentName = currentUser.getEmail();
+                        if (tempRollNumber == null) tempRollNumber = "Not Set";
+                    } else {
+                        Log.d(TAG, "No student profile found, using fallback values");
+                        // Use email as fallback for student name
+                        tempStudentName = currentUser.getEmail();
+                        tempRollNumber = "Not Registered";
                     }
+
+                    // Create final variables for lambda use
+                    final String finalStudentName = tempStudentName;
+                    final String finalRollNumber = tempRollNumber;
+
+                    // Create attendance record with enhanced student info
+                    Map<String, Object> attendeeData = new HashMap<>();
+                    attendeeData.put("studentId", currentUser.getUid());
+                    attendeeData.put("studentEmail", currentUser.getEmail());
+                    attendeeData.put("studentName", finalStudentName);
+                    attendeeData.put("rollNumber", finalRollNumber);
+                    attendeeData.put("joinTime", new Date());
+                    attendeeData.put("method", detectionMethod != null ? detectionMethod : "Unknown");
+                    
+                    Log.d(TAG, "Saving attendance data - Name: '" + finalStudentName + "', Roll: '" + finalRollNumber + "'");
+                    
+                    // Add proximity verification details
+                    if ("QR Code".equals(detectionMethod)) {
+                        attendeeData.put("proximityVerified", proximityVerified);
+                        attendeeData.put("signalStrength", lastRssiValue);
+                    } else {
+                        // For BLE detection, proximity is inherently verified
+                        attendeeData.put("proximityVerified", true);
+                        attendeeData.put("signalStrength", lastRssiValue);
+                    }
+
+                    // Add to session's attendees
+                    db.collection("sessions").document(detectedSessionId)
+                            .update("attendees." + currentUser.getUid(), attendeeData)
+                            .addOnSuccessListener(aVoid -> {
+                                Log.d(TAG, "Attendance marked successfully with proximity verification");
+                                updateStatus("✅ Attendance marked successfully!");
+                                
+                                // Navigate to result fragment with enhanced data
+                                Bundle bundle = new Bundle();
+                                bundle.putString("sessionId", detectedSessionId);
+                                bundle.putString("method", detectionMethod != null ? detectionMethod : "Unknown");
+                                bundle.putString("studentName", finalStudentName);
+                                bundle.putString("rollNumber", finalRollNumber);
+                                bundle.putString("teacherName", teacherName != null ? teacherName : "Unknown Teacher");
+                                bundle.putString("className", className != null ? className : "Unknown Class");
+                                bundle.putString("subject", subject != null ? subject : "Unknown Subject");
+                                bundle.putBoolean("success", true);
+                                
+                                try {
+                                    NavHostFragment.findNavController(StudentFragment.this)
+                                            .navigate(R.id.action_studentFragment_to_attendanceResultFragment, bundle);
+                                } catch (Exception e) {
+                                    Log.e(TAG, "Navigation error", e);
+                                    // Show success message if navigation fails
+                                    updateStatus("✅ Attendance marked successfully! Roll Number: " + finalRollNumber);
+                                    showProgress(false);
+                                }
+                            })
+                            .addOnFailureListener(e -> {
+                                Log.e(TAG, "Error marking attendance", e);
+                                updateStatus("❌ Failed to mark attendance: " + e.getMessage());
+                                showProgress(false);
+                                
+                                // Navigate to result fragment with error
+                                Bundle bundle = new Bundle();
+                                bundle.putString("sessionId", detectedSessionId);
+                                bundle.putString("method", detectionMethod != null ? detectionMethod : "Unknown");
+                                bundle.putString("studentName", finalStudentName);
+                                bundle.putString("rollNumber", finalRollNumber);
+                                bundle.putString("teacherName", teacherName != null ? teacherName : "Unknown Teacher");
+                                bundle.putString("className", className != null ? className : "Unknown Class");
+                                bundle.putString("subject", subject != null ? subject : "Unknown Subject");
+                                bundle.putBoolean("success", false);
+                                bundle.putString("errorMessage", e.getMessage());
+                                
+                                try {
+                                    NavHostFragment.findNavController(StudentFragment.this)
+                                            .navigate(R.id.action_studentFragment_to_attendanceResultFragment, bundle);
+                                } catch (Exception navError) {
+                                    Log.e(TAG, "Navigation error after failure", navError);
+                                    showProgress(false);
+                                }
+                            });
                 })
                 .addOnFailureListener(e -> {
-                    Log.e(TAG, "Error marking attendance", e);
-                    updateStatus("❌ Failed to mark attendance: " + e.getMessage());
-                    showProgress(false);
+                    Log.w(TAG, "Could not fetch student details, proceeding with basic info", e);
                     
-                    // Navigate to result fragment with error
-                    Bundle bundle = new Bundle();
-                    bundle.putString("sessionId", detectedSessionId);
-                    bundle.putString("method", detectionMethod != null ? detectionMethod : "Unknown");
-                    bundle.putBoolean("success", false);
+                    // Create final variables for lambda use
+                    final String fallbackStudentName = currentUser.getEmail();
+                    final String fallbackRollNumber = "Not Available";
                     
-                    try {
-                        NavHostFragment.findNavController(StudentFragment.this)
-                                .navigate(R.id.action_studentFragment_to_attendanceResultFragment, bundle);
-                    } catch (Exception navError) {
-                        Log.e(TAG, "Navigation error", navError);
+                    // Fallback: use basic user info
+                    Map<String, Object> attendeeData = new HashMap<>();
+                    attendeeData.put("studentId", currentUser.getUid());
+                    attendeeData.put("studentEmail", currentUser.getEmail());
+                    attendeeData.put("studentName", fallbackStudentName);
+                    attendeeData.put("rollNumber", fallbackRollNumber);
+                    attendeeData.put("joinTime", new Date());
+                    attendeeData.put("method", detectionMethod != null ? detectionMethod : "Unknown");
+                    
+                    // Add proximity verification details
+                    if ("QR Code".equals(detectionMethod)) {
+                        attendeeData.put("proximityVerified", proximityVerified);
+                        attendeeData.put("signalStrength", lastRssiValue);
+                    } else {
+                        attendeeData.put("proximityVerified", true);
+                        attendeeData.put("signalStrength", lastRssiValue);
                     }
+
+                    // Continue with attendance marking
+                    db.collection("sessions").document(detectedSessionId)
+                            .update("attendees." + currentUser.getUid(), attendeeData)
+                            .addOnSuccessListener(aVoid -> {
+                                Log.d(TAG, "Attendance marked successfully");
+                                updateStatus("✅ Attendance marked successfully!");
+                                
+                                Bundle bundle = new Bundle();
+                                bundle.putString("sessionId", detectedSessionId);
+                                bundle.putString("method", detectionMethod != null ? detectionMethod : "Unknown");
+                                bundle.putString("studentName", fallbackStudentName);
+                                bundle.putString("rollNumber", fallbackRollNumber);
+                                bundle.putString("teacherName", teacherName != null ? teacherName : "Unknown Teacher");
+                                bundle.putString("className", className != null ? className : "Unknown Class");
+                                bundle.putString("subject", subject != null ? subject : "Unknown Subject");
+                                bundle.putBoolean("success", true);
+                                
+                                try {
+                                    NavHostFragment.findNavController(StudentFragment.this)
+                                            .navigate(R.id.action_studentFragment_to_attendanceResultFragment, bundle);
+                                } catch (Exception navError) {
+                                    Log.e(TAG, "Navigation error", navError);
+                                    updateStatus("✅ Attendance marked successfully!");
+                                    showProgress(false);
+                                }
+                            })
+                            .addOnFailureListener(e2 -> {
+                                Log.e(TAG, "Error marking attendance", e2);
+                                updateStatus("❌ Failed to mark attendance: " + e2.getMessage());
+                                showProgress(false);
+                            });
                 });
     }
 
@@ -788,10 +906,12 @@ public class StudentFragment extends Fragment {
         detectionMethod = null;
         teacherName = null;
         teacherEmail = null;
+        className = null;
+        subject = null;
         proximityVerified = false;
         lastRssiValue = -999;
-        textViewSessionId.setText("Session ID: Not connected");
-        textViewTeacherInfo.setText("Teacher: Unknown");
+        textViewSessionId.setText("Class: Not connected");
+        textViewTeacherInfo.setText("👨‍🏫 Teacher: Unknown");
         hideProximityStatus();
         buttonJoinAttendance.setEnabled(false);
         buttonJoinAttendance.setVisibility(View.GONE);

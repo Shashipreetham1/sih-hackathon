@@ -24,11 +24,19 @@ public class AttendanceResultFragment extends Fragment {
     private TextView textViewSessionInfo;
     private TextView textViewTimestamp;
     private TextView textViewMethod;
+    private TextView textViewStudentInfo;
+    private TextView textViewClassInfo;
     private Button buttonBackToStudent;
     private ImageView imageViewResult;
 
     private String sessionId;
     private String method;
+    private String studentName;
+    private String rollNumber;
+    private String teacherName;
+    private String className;
+    private String subject;
+    private String errorMessage;
     private boolean success;
 
     public AttendanceResultFragment() {
@@ -43,6 +51,12 @@ public class AttendanceResultFragment extends Fragment {
         if (getArguments() != null) {
             sessionId = getArguments().getString("sessionId", "Unknown");
             method = getArguments().getString("method", "Unknown");
+            studentName = getArguments().getString("studentName", "Unknown Student");
+            rollNumber = getArguments().getString("rollNumber", "Unknown");
+            teacherName = getArguments().getString("teacherName", "Unknown Teacher");
+            className = getArguments().getString("className", "Unknown Class");
+            subject = getArguments().getString("subject", "Unknown Subject");
+            errorMessage = getArguments().getString("errorMessage", "");
             success = getArguments().getBoolean("success", false);
         }
     }
@@ -65,6 +79,8 @@ public class AttendanceResultFragment extends Fragment {
         textViewSessionInfo = view.findViewById(R.id.textViewSessionInfo);
         textViewTimestamp = view.findViewById(R.id.textViewTimestamp);
         textViewMethod = view.findViewById(R.id.textViewMethod);
+        textViewStudentInfo = view.findViewById(R.id.textViewStudentInfo);
+        textViewClassInfo = view.findViewById(R.id.textViewClassInfo);
         buttonBackToStudent = view.findViewById(R.id.buttonBackToStudent);
         imageViewResult = view.findViewById(R.id.imageViewResult);
     }
@@ -78,12 +94,26 @@ public class AttendanceResultFragment extends Fragment {
         } else {
             // Error state
             textViewResultTitle.setText("Attendance Failed");
-            textViewResultMessage.setText("Could not mark your attendance. Please try again.");
+            String errorMsg = "Could not mark your attendance. Please try again.";
+            if (errorMessage != null && !errorMessage.isEmpty()) {
+                errorMsg += "\nReason: " + errorMessage;
+            }
+            textViewResultMessage.setText(errorMsg);
             imageViewResult.setImageResource(android.R.drawable.ic_dialog_alert);
         }
 
-        // Set session info
-        textViewSessionInfo.setText("Session: " + sessionId);
+        // Set student info (roll number and name instead of session ID)
+        textViewSessionInfo.setText("Roll Number: " + rollNumber);
+        
+        // Set student name and teacher info
+        if (textViewStudentInfo != null) {
+            textViewStudentInfo.setText("Student: " + studentName);
+        }
+        
+        // Set class and teacher info
+        if (textViewClassInfo != null) {
+            textViewClassInfo.setText("Class: " + className + " - " + subject + "\nTeacher: " + teacherName);
+        }
         
         // Set current timestamp
         SimpleDateFormat dateFormat = new SimpleDateFormat("MMM dd, yyyy 'at' hh:mm a", Locale.getDefault());
