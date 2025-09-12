@@ -53,7 +53,7 @@ public class StudentFragment extends Fragment {
     private static final long BLE_SCAN_DURATION = 30000; // 30 seconds
     
     // Proximity verification constants
-    private static final int PROXIMITY_REQUIRED_RSSI = -70; // Strong signal required (closer than ~5 meters)
+    private static final int PROXIMITY_REQUIRED_RSSI = -85; // Increased range (closer than ~15 meters)
     private static final int PROXIMITY_VERIFICATION_TIMEOUT = 10000; // 10 seconds to verify proximity
 
     // UI Components

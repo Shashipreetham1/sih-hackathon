@@ -160,14 +160,14 @@ public class TeacherSignInFragment extends Fragment {
                     buttonVerifyOtp.setVisibility(View.VISIBLE);
                     editTextPhoneNumber.setEnabled(false);
                     buttonSendOtp.setEnabled(false);
-                    Toast.makeText(getContext(), "OTP sent for teacher sign-in", Toast.LENGTH_SHORT).show();
+                        Toast.makeText(requireContext(), "OTP sent for teacher sign-in", Toast.LENGTH_SHORT).show();
                 }
             };
 
     private void verifyOtp() {
         String code = editTextOtp.getText().toString().trim();
         if (TextUtils.isEmpty(code) || code.length() != 6) {
-            Toast.makeText(getContext(), "Enter the 6-digit OTP", Toast.LENGTH_SHORT).show();
+                Toast.makeText(requireContext(), "Enter the 6-digit OTP", Toast.LENGTH_SHORT).show();
             return;
         }
 

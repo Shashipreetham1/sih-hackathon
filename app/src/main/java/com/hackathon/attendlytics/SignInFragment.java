@@ -15,6 +15,7 @@ import android.widget.Toast;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
+import androidx.navigation.NavController;
 import androidx.navigation.fragment.NavHostFragment;
 
 import com.google.firebase.FirebaseException;
@@ -221,19 +222,34 @@ public class SignInFragment extends Fragment {
                                 // Fully registered user - go to dashboard
                                 Toast.makeText(getContext(), "Welcome back, " + 
                                     (studentName != null ? studentName : "Student") + "!", Toast.LENGTH_SHORT).show();
-                                NavHostFragment.findNavController(SignInFragment.this)
-                                    .navigate(R.id.action_signInFragment_to_studentDashboardFragment);
+                                
+                                // Check current destination before navigating
+                                NavController navController = NavHostFragment.findNavController(SignInFragment.this);
+                                if (navController.getCurrentDestination() != null && 
+                                    navController.getCurrentDestination().getId() != R.id.studentDashboardFragment) {
+                                    navController.navigate(R.id.action_signInFragment_to_studentDashboardFragment);
+                                }
                             } else {
                                 // Profile complete but face not enrolled
                                 Toast.makeText(getContext(), "Welcome back! Please complete face enrollment.", Toast.LENGTH_SHORT).show();
-                                NavHostFragment.findNavController(SignInFragment.this)
-                                    .navigate(R.id.action_signInFragment_to_faceEnrollFragment);
+                                
+                                // Check current destination before navigating
+                                NavController navController = NavHostFragment.findNavController(SignInFragment.this);
+                                if (navController.getCurrentDestination() != null && 
+                                    navController.getCurrentDestination().getId() != R.id.faceEnrollFragment) {
+                                    navController.navigate(R.id.action_signInFragment_to_faceEnrollFragment);
+                                }
                             }
                         } else {
                             // Profile not completed - go to profile setup
                             Toast.makeText(getContext(), "Welcome back! Please complete your profile.", Toast.LENGTH_SHORT).show();
-                            NavHostFragment.findNavController(SignInFragment.this)
-                                .navigate(R.id.action_signInFragment_to_studentProfileSetupFragment);
+                            
+                            // Check current destination before navigating
+                            NavController navController = NavHostFragment.findNavController(SignInFragment.this);
+                            if (navController.getCurrentDestination() != null && 
+                                navController.getCurrentDestination().getId() != R.id.studentProfileSetupFragment) {
+                                navController.navigate(R.id.action_signInFragment_to_studentProfileSetupFragment);
+                            }
                         }
                     } else {
                         // User not found - this phone number is not registered
