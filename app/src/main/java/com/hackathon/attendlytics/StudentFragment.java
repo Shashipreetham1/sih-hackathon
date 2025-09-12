@@ -51,12 +51,17 @@ public class StudentFragment extends Fragment {
     private static final int CAMERA_PERMISSION_REQUEST_CODE = 2002;
     private static final ParcelUuid SERVICE_UUID = ParcelUuid.fromString("12345678-1234-1234-1234-123456789abc");
     private static final long BLE_SCAN_DURATION = 30000; // 30 seconds
+    
+    // Proximity verification constants
+    private static final int PROXIMITY_REQUIRED_RSSI = -70; // Strong signal required (closer than ~5 meters)
+    private static final int PROXIMITY_VERIFICATION_TIMEOUT = 10000; // 10 seconds to verify proximity
 
     // UI Components
     private TextView textViewBleStatus;
     private TextView textViewStatus;
     private TextView textViewSessionId;
     private TextView textViewTeacherInfo;
+    private TextView textViewProximityStatus;
     private Button buttonScanQr;
     private Button buttonScanBle;
     private Button buttonJoinAttendance;
@@ -80,6 +85,11 @@ public class StudentFragment extends Fragment {
     private String teacherName;
     private String teacherEmail;
     private boolean isScanning = false;
+    
+    // Proximity Verification
+    private boolean proximityVerified = false;
+    private int lastRssiValue = -999;
+    private Handler proximityHandler;
 
     public StudentFragment() {
         // Required empty public constructor
@@ -118,6 +128,7 @@ public class StudentFragment extends Fragment {
         textViewStatus = view.findViewById(R.id.textViewStatus);
         textViewSessionId = view.findViewById(R.id.textViewSessionId);
         textViewTeacherInfo = view.findViewById(R.id.textViewTeacherInfo);
+        textViewProximityStatus = view.findViewById(R.id.textViewProximityStatus);
         buttonScanQr = view.findViewById(R.id.buttonScanQr);
         buttonScanBle = view.findViewById(R.id.buttonScanBle);
         buttonJoinAttendance = view.findViewById(R.id.buttonJoinAttendance);
@@ -155,7 +166,15 @@ public class StudentFragment extends Fragment {
                 buttonScanBle.setEnabled(false);
             } else {
                 Log.d(TAG, "BLE scanning supported");
-                updateStatus("Ready to scan for attendance sessions");
+                
+                // Check permissions at startup
+                if (!checkBluetoothPermissions()) {
+                    Log.d(TAG, "Bluetooth permissions missing - requesting at startup");
+                    updateStatus("Please grant Bluetooth permissions for BLE scanning");
+                    requestBluetoothPermissions();
+                } else {
+                    updateStatus("Ready to scan for attendance sessions");
+                }
             }
         }
     }
@@ -183,18 +202,22 @@ public class StudentFragment extends Fragment {
 
     private void startBleScanning() {
         Log.d(TAG, "Starting BLE scanning");
+        Log.d(TAG, "SERVICE_UUID: " + SERVICE_UUID.toString());
         
         if (!checkBluetoothPermissions()) {
+            Log.e(TAG, "Bluetooth permissions not granted");
             requestBluetoothPermissions();
             return;
         }
 
         if (bluetoothLeScanner == null) {
+            Log.e(TAG, "BluetoothLeScanner is null");
             updateStatus("BLE scanning not available");
             return;
         }
 
         if (isScanning) {
+            Log.d(TAG, "Already scanning, stopping first");
             stopBleScanning();
             return;
         }
@@ -211,24 +234,39 @@ public class StudentFragment extends Fragment {
                 .setServiceUuid(SERVICE_UUID)
                 .build();
         filters.add(filter);
+        
+        Log.d(TAG, "Created scan filter with SERVICE_UUID: " + SERVICE_UUID.toString());
 
         // Create scan settings
         ScanSettings settings = new ScanSettings.Builder()
                 .setScanMode(ScanSettings.SCAN_MODE_LOW_LATENCY)
                 .setCallbackType(ScanSettings.CALLBACK_TYPE_ALL_MATCHES)
                 .build();
+        
+        Log.d(TAG, "Created scan settings with LOW_LATENCY mode");
 
         // Create scan callback
         scanCallback = new ScanCallback() {
             @Override
             public void onScanResult(int callbackType, ScanResult result) {
                 super.onScanResult(callbackType, result);
+                Log.d(TAG, "BLE device found: " + result.getDevice().getAddress() + " RSSI: " + result.getRssi());
+                Log.d(TAG, "Device name: " + result.getDevice().getName());
+                
+                // Log scan record details
+                if (result.getScanRecord() != null) {
+                    Log.d(TAG, "Service UUIDs: " + result.getScanRecord().getServiceUuids());
+                    Log.d(TAG, "Service data map: " + result.getScanRecord().getServiceData());
+                    Log.d(TAG, "Device name from record: " + result.getScanRecord().getDeviceName());
+                }
+                
                 handleBleDetection(result);
             }
 
             @Override
             public void onBatchScanResults(List<ScanResult> results) {
                 super.onBatchScanResults(results);
+                Log.d(TAG, "Batch scan results: " + results.size() + " devices");
                 for (ScanResult result : results) {
                     handleBleDetection(result);
                 }
@@ -243,6 +281,12 @@ public class StudentFragment extends Fragment {
                     getActivity().runOnUiThread(() -> {
                         updateStatus("BLE scan failed: " + getBleErrorMessage(errorCode));
                         stopBleScanning();
+                        
+                        // Try scanning without filters as fallback
+                        if (errorCode == ScanCallback.SCAN_FAILED_APPLICATION_REGISTRATION_FAILED) {
+                            Log.d(TAG, "Trying fallback scan without filters");
+                            startFallbackBleScanning();
+                        }
                     });
                 }
             }
@@ -250,13 +294,15 @@ public class StudentFragment extends Fragment {
 
         // Start scanning
         try {
+            Log.d(TAG, "Starting filtered BLE scan...");
             bluetoothLeScanner.startScan(filters, settings, scanCallback);
             
             // Stop scanning after duration
             scanHandler.postDelayed(() -> {
                 if (isScanning && detectedSessionId == null) {
-                    updateStatus("No teacher beacons found. Try QR scanning.");
+                    Log.d(TAG, "Filtered scan found no devices, trying unfiltered scan");
                     stopBleScanning();
+                    startFallbackBleScanning();
                 }
             }, BLE_SCAN_DURATION);
             
@@ -264,33 +310,166 @@ public class StudentFragment extends Fragment {
             Log.e(TAG, "Security exception starting BLE scan", e);
             updateStatus("Permission denied for BLE scanning");
             stopBleScanning();
+        } catch (Exception e) {
+            Log.e(TAG, "Exception starting BLE scan", e);
+            updateStatus("Error starting BLE scan: " + e.getMessage());
+            stopBleScanning();
+        }
+    }
+    
+    private void startFallbackBleScanning() {
+        Log.d(TAG, "Starting fallback BLE scanning without filters");
+        
+        if (bluetoothLeScanner == null || !checkBluetoothPermissions()) {
+            return;
+        }
+        
+        showProgress(true);
+        updateStatus("Scanning for ANY BLE devices (fallback mode)...");
+        updateBleStatus("BLE Status: Fallback scanning", 0xFFFF8800); // Orange color
+        isScanning = true;
+
+        // Create scan settings for unfiltered scan
+        ScanSettings settings = new ScanSettings.Builder()
+                .setScanMode(ScanSettings.SCAN_MODE_LOW_LATENCY)
+                .setCallbackType(ScanSettings.CALLBACK_TYPE_ALL_MATCHES)
+                .build();
+
+        // Create fallback scan callback
+        ScanCallback fallbackCallback = new ScanCallback() {
+            @Override
+            public void onScanResult(int callbackType, ScanResult result) {
+                super.onScanResult(callbackType, result);
+                Log.d(TAG, "Fallback scan - BLE device found: " + result.getDevice().getAddress() + " RSSI: " + result.getRssi());
+                
+                // Check if this device has our service UUID
+                if (result.getScanRecord() != null && result.getScanRecord().getServiceUuids() != null) {
+                    for (ParcelUuid uuid : result.getScanRecord().getServiceUuids()) {
+                        Log.d(TAG, "Service UUID found: " + uuid.toString());
+                        if (SERVICE_UUID.equals(uuid)) {
+                            Log.d(TAG, "Found matching SERVICE_UUID in fallback scan!");
+                            handleBleDetection(result);
+                            return;
+                        }
+                    }
+                }
+                
+                // Check service data for our UUID
+                if (result.getScanRecord() != null && result.getScanRecord().getServiceData() != null) {
+                    if (result.getScanRecord().getServiceData().containsKey(SERVICE_UUID)) {
+                        Log.d(TAG, "Found SERVICE_UUID in service data!");
+                        handleBleDetection(result);
+                    }
+                }
+            }
+
+            @Override
+            public void onScanFailed(int errorCode) {
+                super.onScanFailed(errorCode);
+                Log.e(TAG, "Fallback BLE scan failed: " + errorCode);
+                
+                if (getActivity() != null) {
+                    getActivity().runOnUiThread(() -> {
+                        updateStatus("Fallback BLE scan failed: " + getBleErrorMessage(errorCode));
+                        stopBleScanning();
+                    });
+                }
+            }
+        };
+
+        // Start unfiltered scanning
+        try {
+            Log.d(TAG, "Starting unfiltered BLE scan...");
+            bluetoothLeScanner.startScan(new ArrayList<>(), settings, fallbackCallback);
+            
+            // Store the callback for stopping
+            scanCallback = fallbackCallback;
+            
+            // Stop scanning after duration
+            scanHandler.postDelayed(() -> {
+                if (isScanning && detectedSessionId == null) {
+                    updateStatus("No teacher beacons found in any scan mode. Try QR scanning.");
+                    stopBleScanning();
+                }
+            }, BLE_SCAN_DURATION);
+            
+        } catch (SecurityException e) {
+            Log.e(TAG, "Security exception starting fallback BLE scan", e);
+            updateStatus("Permission denied for fallback BLE scanning");
+            stopBleScanning();
+        } catch (Exception e) {
+            Log.e(TAG, "Exception starting fallback BLE scan", e);
+            updateStatus("Error starting fallback BLE scan: " + e.getMessage());
+            stopBleScanning();
         }
     }
 
     private void handleBleDetection(ScanResult result) {
-        Log.d(TAG, "BLE device detected: " + result.getDevice().getAddress());
+        int rssi = result.getRssi();
+        lastRssiValue = rssi; // Store RSSI for proximity verification
+        
+        Log.d(TAG, "=== BLE DEVICE ANALYSIS ===");
+        Log.d(TAG, "Device: " + result.getDevice().getAddress() + " RSSI: " + rssi);
+        Log.d(TAG, "Device Name: " + result.getDevice().getName());
+        
+        if (result.getScanRecord() == null) {
+            Log.w(TAG, "Scan record is null");
+            return;
+        }
+        
+        Log.d(TAG, "Device Name from record: " + result.getScanRecord().getDeviceName());
+        Log.d(TAG, "Service UUIDs: " + result.getScanRecord().getServiceUuids());
+        Log.d(TAG, "Service Data keys: " + (result.getScanRecord().getServiceData() != null ? 
+                result.getScanRecord().getServiceData().keySet() : "null"));
+        
+        // Check if this device advertises our service UUID
+        boolean hasServiceUuid = false;
+        if (result.getScanRecord().getServiceUuids() != null) {
+            for (ParcelUuid uuid : result.getScanRecord().getServiceUuids()) {
+                Log.d(TAG, "Checking service UUID: " + uuid.toString());
+                if (SERVICE_UUID.equals(uuid)) {
+                    hasServiceUuid = true;
+                    Log.d(TAG, "✅ Found matching SERVICE_UUID!");
+                    break;
+                }
+            }
+        }
         
         // Extract session ID from service data
         byte[] serviceData = result.getScanRecord().getServiceData(SERVICE_UUID);
         if (serviceData != null) {
             String sessionId = new String(serviceData, StandardCharsets.UTF_8);
-            Log.d(TAG, "Session ID detected via BLE: " + sessionId);
+            Log.d(TAG, "✅ Session ID detected via BLE: " + sessionId + " (Signal strength: " + rssi + " dBm)");
             
             if (getActivity() != null) {
                 getActivity().runOnUiThread(() -> {
+                    // For BLE detection, proximity is automatically verified by signal presence
+                    proximityVerified = true;
+                    updateProximityStatus("✅ Proximity verified via BLE (Signal: " + rssi + " dBm)", Color.GREEN);
                     handleSessionDetected(sessionId, "BLE Beacon");
                 });
             }
-        } else {
-            // Simple beacon without service data
-            Log.d(TAG, "Simple BLE beacon detected (no session data)");
+        } else if (hasServiceUuid) {
+            // Device has our service UUID but no service data
+            Log.d(TAG, "⚠️ Device has SERVICE_UUID but no service data");
             if (getActivity() != null) {
                 getActivity().runOnUiThread(() -> {
-                    updateStatus("Teacher beacon detected! Please scan QR code for Session ID.");
+                    if (rssi >= PROXIMITY_REQUIRED_RSSI) {
+                        updateStatus("Strong teacher beacon detected! Please scan QR code for Session ID.");
+                        updateBleStatus("Teacher beacon found - scan QR code", Color.GREEN);
+                    } else {
+                        updateStatus("Teacher beacon detected but weak signal. Move closer and scan QR code.");
+                        updateBleStatus("Weak teacher beacon - move closer", Color.YELLOW);
+                    }
                     stopBleScanning();
                 });
             }
+        } else {
+            // Device doesn't have our service UUID
+            Log.d(TAG, "❌ Device does not have our SERVICE_UUID");
         }
+        
+        Log.d(TAG, "=== END BLE ANALYSIS ===");
     }
 
     private void stopBleScanning() {
@@ -392,21 +571,180 @@ public class StudentFragment extends Fragment {
             return;
         }
 
-        showProgress(true);
-        updateStatus("Joining attendance session...");
+        // Check if proximity verification is required (for QR scans)
+        if ("QR Code".equals(detectionMethod)) {
+            if (!proximityVerified) {
+                updateStatus("🔍 Verifying proximity to teacher...");
+                startProximityVerification();
+                return;
+            }
+        }
 
-        // Create attendance record
+        // Proceed with attendance marking
+        markAttendanceWithProximity();
+    }
+
+    private void startProximityVerification() {
+        if (!checkBluetoothPermissions()) {
+            updateStatus("❌ Bluetooth permissions required for proximity verification");
+            return;
+        }
+
+        if (bluetoothAdapter == null || !bluetoothAdapter.isEnabled()) {
+            updateStatus("❌ Please enable Bluetooth for proximity verification");
+            return;
+        }
+
+        showProgress(true);
+        proximityVerified = false;
+        lastRssiValue = -999;
+        updateProximityStatus("🔍 Checking proximity...", Color.BLUE);
+
+        // Start BLE scanning specifically for proximity verification
+        bluetoothLeScanner = bluetoothAdapter.getBluetoothLeScanner();
+        if (bluetoothLeScanner == null) {
+            updateStatus("❌ BLE scanner not available");
+            showProgress(false);
+            return;
+        }
+
+        ScanFilter filter = new ScanFilter.Builder()
+                .setServiceUuid(SERVICE_UUID)
+                .build();
+
+        ScanSettings settings = new ScanSettings.Builder()
+                .setScanMode(ScanSettings.SCAN_MODE_LOW_LATENCY)
+                .setCallbackType(ScanSettings.CALLBACK_TYPE_ALL_MATCHES)
+                .build();
+
+        ScanCallback proximityCallback = new ScanCallback() {
+            @Override
+            public void onScanResult(int callbackType, ScanResult result) {
+                super.onScanResult(callbackType, result);
+                
+                int rssi = result.getRssi();
+                lastRssiValue = rssi;
+                
+                Log.d(TAG, "Proximity check - RSSI: " + rssi + " (Required: " + PROXIMITY_REQUIRED_RSSI + ")");
+                
+                if (rssi >= PROXIMITY_REQUIRED_RSSI) {
+                    Log.d(TAG, "✅ Proximity verified! Strong signal detected");
+                    proximityVerified = true;
+                    stopProximityVerification();
+                    
+                    if (getActivity() != null) {
+                        getActivity().runOnUiThread(() -> {
+                            updateProximityStatus("✅ Proximity verified (Signal: " + rssi + " dBm)", Color.GREEN);
+                            updateStatus("✅ Proximity verified! Marking attendance...");
+                            markAttendanceWithProximity();
+                        });
+                    }
+                } else {
+                    if (getActivity() != null) {
+                        getActivity().runOnUiThread(() -> {
+                            updateProximityStatus("📶 Move closer (Signal: " + rssi + " dBm)", Color.YELLOW);
+                            updateStatus("📶 Move closer to teacher (Signal: " + rssi + " dBm)");
+                        });
+                    }
+                }
+            }
+
+            @Override
+            public void onScanFailed(int errorCode) {
+                super.onScanFailed(errorCode);
+                Log.e(TAG, "Proximity verification scan failed: " + errorCode);
+                
+                if (getActivity() != null) {
+                    getActivity().runOnUiThread(() -> {
+                        updateStatus("❌ Proximity verification failed. Please try again.");
+                        showProgress(false);
+                    });
+                }
+            }
+        };
+
+        try {
+            bluetoothLeScanner.startScan(List.of(filter), settings, proximityCallback);
+            isScanning = true;
+            scanCallback = proximityCallback;
+            
+            // Set timeout for proximity verification
+            if (proximityHandler == null) {
+                proximityHandler = new Handler();
+            }
+            
+            proximityHandler.postDelayed(() -> {
+                if (isScanning && !proximityVerified) {
+                    stopProximityVerification();
+                    if (getActivity() != null) {
+                        getActivity().runOnUiThread(() -> {
+                            String message = lastRssiValue != -999 ? 
+                                "❌ Too far from teacher. Signal: " + lastRssiValue + " dBm (Need: " + PROXIMITY_REQUIRED_RSSI + " dBm or stronger)" :
+                                "❌ Teacher's beacon not detected. Please move closer.";
+                            updateStatus(message);
+                            showProgress(false);
+                        });
+                    }
+                }
+            }, PROXIMITY_VERIFICATION_TIMEOUT);
+            
+        } catch (SecurityException e) {
+            Log.e(TAG, "Security exception during proximity verification", e);
+            updateStatus("❌ Permission denied for proximity verification");
+            showProgress(false);
+        }
+    }
+
+    private void stopProximityVerification() {
+        if (bluetoothLeScanner != null && scanCallback != null && isScanning) {
+            try {
+                bluetoothLeScanner.stopScan(scanCallback);
+                isScanning = false;
+                scanCallback = null;
+                Log.d(TAG, "Proximity verification stopped");
+            } catch (SecurityException e) {
+                Log.e(TAG, "Error stopping proximity verification", e);
+            }
+        }
+        
+        if (proximityHandler != null) {
+            proximityHandler.removeCallbacksAndMessages(null);
+        }
+    }
+
+    private void markAttendanceWithProximity() {
+        FirebaseUser currentUser = mAuth.getCurrentUser();
+        if (currentUser == null) {
+            updateStatus("Authentication error");
+            showProgress(false);
+            return;
+        }
+
+        showProgress(true);
+        updateStatus("Marking attendance with proximity verification...");
+
+        // Create attendance record with proximity info
         Map<String, Object> attendeeData = new HashMap<>();
         attendeeData.put("studentId", currentUser.getUid());
         attendeeData.put("studentEmail", currentUser.getEmail());
         attendeeData.put("joinTime", new Date());
         attendeeData.put("method", detectionMethod != null ? detectionMethod : "Unknown");
+        
+        // Add proximity verification details
+        if ("QR Code".equals(detectionMethod)) {
+            attendeeData.put("proximityVerified", proximityVerified);
+            attendeeData.put("signalStrength", lastRssiValue);
+        } else {
+            // For BLE detection, proximity is inherently verified
+            attendeeData.put("proximityVerified", true);
+            attendeeData.put("signalStrength", lastRssiValue);
+        }
 
         // Add to session's attendees
         db.collection("sessions").document(detectedSessionId)
                 .update("attendees." + currentUser.getUid(), attendeeData)
                 .addOnSuccessListener(aVoid -> {
-                    Log.d(TAG, "Attendance marked successfully");
+                    Log.d(TAG, "Attendance marked successfully with proximity verification");
                     updateStatus("✅ Attendance marked successfully!");
                     
                     // Navigate to result fragment
@@ -450,8 +788,11 @@ public class StudentFragment extends Fragment {
         detectionMethod = null;
         teacherName = null;
         teacherEmail = null;
+        proximityVerified = false;
+        lastRssiValue = -999;
         textViewSessionId.setText("Session ID: Not connected");
         textViewTeacherInfo.setText("Teacher: Unknown");
+        hideProximityStatus();
         buttonJoinAttendance.setEnabled(false);
         buttonJoinAttendance.setVisibility(View.GONE);
     }
@@ -558,6 +899,20 @@ public class StudentFragment extends Fragment {
         }
     }
 
+    private void updateProximityStatus(String status, int color) {
+        if (textViewProximityStatus != null) {
+            textViewProximityStatus.setText(status);
+            textViewProximityStatus.setTextColor(color);
+            textViewProximityStatus.setVisibility(View.VISIBLE);
+        }
+    }
+
+    private void hideProximityStatus() {
+        if (textViewProximityStatus != null) {
+            textViewProximityStatus.setVisibility(View.GONE);
+        }
+    }
+
     private void navigateBackToDashboard() {
         try {
             NavHostFragment.findNavController(StudentFragment.this)
@@ -575,8 +930,12 @@ public class StudentFragment extends Fragment {
         if (isScanning) {
             stopBleScanning();
         }
+        stopProximityVerification();
         if (scanHandler != null) {
             scanHandler.removeCallbacksAndMessages(null);
+        }
+        if (proximityHandler != null) {
+            proximityHandler.removeCallbacksAndMessages(null);
         }
     }
 }

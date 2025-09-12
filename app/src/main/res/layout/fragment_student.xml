@@ -44,9 +44,10 @@
             android:id="@+id/textViewSubtitle"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Scan QR Code or detect BLE beacon to join attendance"
+            android:text="Scan QR Code or detect BLE beacon to join attendance\n(Proximity to teacher required for verification)"
             android:textSize="14sp"
             android:textColor="@android:color/darker_gray"
+            android:gravity="center"
             android:layout_marginTop="8dp"
             app:layout_constraintTop_toBottomOf="@+id/textViewStudentTitle"
             app:layout_constraintStart_toStartOf="parent"
@@ -185,6 +186,20 @@
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintEnd_toEndOf="parent" />
 
+        <!-- Proximity Status -->
+        <TextView
+            android:id="@+id/textViewProximityStatus"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Proximity: Not verified"
+            android:textSize="12sp"
+            android:textColor="@android:color/holo_orange_dark"
+            android:layout_marginTop="8dp"
+            android:visibility="gone"
+            app:layout_constraintTop_toBottomOf="@+id/textViewTeacherInfo"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent" />
+
         <!-- Progress Bar -->
         <ProgressBar
             android:id="@+id/progressBarScanning"
@@ -192,7 +207,7 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="16dp"
             android:visibility="gone"
-            app:layout_constraintTop_toBottomOf="@+id/textViewTeacherInfo"
+            app:layout_constraintTop_toBottomOf="@+id/textViewProximityStatus"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintEnd_toEndOf="parent" />
 

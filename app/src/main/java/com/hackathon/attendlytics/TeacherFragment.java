@@ -45,6 +45,7 @@ import com.google.zxing.qrcode.QRCodeWriter;
 import java.nio.charset.StandardCharsets;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
@@ -166,14 +167,25 @@ public class TeacherFragment extends Fragment {
                 updateBleStatus("BLE Status: Not Supported", Color.YELLOW);
             } else {
                 Log.d(TAG, "BLE advertising supported");
-                updateStatus("Ready to start attendance session");
+                
+                // Check permissions at startup
+                if (!checkBluetoothPermissions()) {
+                    Log.d(TAG, "Bluetooth permissions missing - requesting at startup");
+                    updateStatus("Please grant Bluetooth permissions");
+                    requestBluetoothPermissions();
+                } else {
+                    updateStatus("Ready to start attendance session");
+                }
             }
         }
     }
 
     private void startSession() {
-        if (!checkPermissions()) {
-            requestPermissions();
+        Log.d(TAG, "Starting session - checking permissions first");
+        
+        if (!checkBluetoothPermissions()) {
+            Log.d(TAG, "Bluetooth permissions missing, requesting...");
+            requestBluetoothPermissions();
             return;
         }
 
@@ -236,6 +248,7 @@ public class TeacherFragment extends Fragment {
 
     private void generateQRCode() {
         try {
+            Log.d(TAG, "Generating QR code for session: " + currentSessionId);
             QRCodeWriter writer = new QRCodeWriter();
             BitMatrix bitMatrix = writer.encode(currentSessionId, BarcodeFormat.QR_CODE, 200, 200);
             
@@ -250,11 +263,28 @@ public class TeacherFragment extends Fragment {
             }
             
             imageViewQrCode.setImageBitmap(bitmap);
-            startBleAdvertising();
+            Log.d(TAG, "QR code generated successfully");
+            
+            // Try BLE advertising, but don't fail if it doesn't work
+            try {
+                startBleAdvertising();
+            } catch (Exception bleError) {
+                Log.e(TAG, "BLE advertising failed, but continuing with QR only", bleError);
+                updateStatus("✅ Session Active! (QR Code only - BLE unavailable)");
+                updateBleStatus("BLE Status: Unavailable", Color.RED);
+                showProgress(false);
+                isSessionActive = true;
+                updateButtonStates();
+                showAttendanceSection(true);
+            }
             
         } catch (WriterException e) {
             Log.e(TAG, "Error generating QR code", e);
-            updateStatus("Failed to generate QR code");
+            updateStatus("Failed to generate QR code: " + e.getMessage());
+            showProgress(false);
+        } catch (Exception e) {
+            Log.e(TAG, "Unexpected error in generateQRCode", e);
+            updateStatus("Unexpected error: " + e.getMessage());
             showProgress(false);
         }
     }
@@ -286,10 +316,9 @@ public class TeacherFragment extends Fragment {
 
         // Check permissions
         if (!checkBluetoothPermissions()) {
-            Log.e(TAG, "Missing Bluetooth permissions");
-            updateStatus("Missing Bluetooth permissions");
-            showProgress(false);
-            return;
+            Log.e(TAG, "Missing Bluetooth permissions, requesting...");
+            requestBluetoothPermissions();
+            throw new RuntimeException("Bluetooth permissions required");
         }
 
         // Create more compatible advertise settings
@@ -304,9 +333,12 @@ public class TeacherFragment extends Fragment {
         String shortSessionId = currentSessionId.substring(Math.max(0, currentSessionId.length() - 16));
         byte[] sessionIdBytes = shortSessionId.getBytes(StandardCharsets.UTF_8);
         
+        Log.d(TAG, "=== BLE ADVERTISING SETUP ===");
+        Log.d(TAG, "SERVICE_UUID: " + SERVICE_UUID.toString());
         Log.d(TAG, "Original Session ID: " + currentSessionId);
         Log.d(TAG, "Short Session ID for BLE: " + shortSessionId);
         Log.d(TAG, "Session ID bytes length: " + sessionIdBytes.length);
+        Log.d(TAG, "Session ID bytes: " + Arrays.toString(sessionIdBytes));
 
         // Create advertise data with shorter session ID
         AdvertiseData data = new AdvertiseData.Builder()
@@ -315,6 +347,8 @@ public class TeacherFragment extends Fragment {
                 .addServiceUuid(SERVICE_UUID)
                 .addServiceData(SERVICE_UUID, sessionIdBytes)
                 .build();
+        
+        Log.d(TAG, "AdvertiseData created with service UUID and data");
 
         // Create advertise callback with better error handling
         advertiseCallback = new AdvertiseCallback() {
@@ -351,6 +385,10 @@ public class TeacherFragment extends Fragment {
                         if (errorCode == AdvertiseCallback.ADVERTISE_FAILED_DATA_TOO_LARGE) {
                             Toast.makeText(getContext(), "Trying simpler BLE setup...", Toast.LENGTH_SHORT).show();
                             startSimpleBleAdvertising();
+                        } else {
+                            // BLE failed, but continue with QR-only mode
+                            Log.w(TAG, "BLE advertising failed, continuing with QR-only mode");
+                            activateQrOnlyMode();
                         }
                     });
                 }
@@ -363,12 +401,26 @@ public class TeacherFragment extends Fragment {
             bluetoothLeAdvertiser.startAdvertising(settings, data, advertiseCallback);
         } catch (SecurityException e) {
             Log.e(TAG, "Security exception starting BLE advertising", e);
-            updateStatus("Permission denied for BLE advertising");
-            showProgress(false);
+            updateStatus("Permission denied for BLE advertising - continuing with QR only");
+            activateQrOnlyMode();
         } catch (Exception e) {
             Log.e(TAG, "Unexpected error starting BLE advertising", e);
-            updateStatus("Error starting BLE: " + e.getMessage());
-            showProgress(false);
+            updateStatus("BLE error: " + e.getMessage() + " - continuing with QR only");
+            activateQrOnlyMode();
+        }
+    }
+    
+    private void activateQrOnlyMode() {
+        Log.d(TAG, "Activating QR-only mode");
+        if (getActivity() != null) {
+            getActivity().runOnUiThread(() -> {
+                isSessionActive = true;
+                updateBleStatus("BLE Status: Unavailable (QR only)", Color.YELLOW);
+                updateStatus("✅ Session Active! Students can scan QR code (BLE unavailable)");
+                updateButtonStates();
+                showAttendanceSection(true);
+                showProgress(false);
+            });
         }
     }
 
@@ -378,6 +430,49 @@ public class TeacherFragment extends Fragment {
                    ActivityCompat.checkSelfPermission(requireContext(), Manifest.permission.BLUETOOTH_CONNECT) == PackageManager.PERMISSION_GRANTED;
         } else {
             return ActivityCompat.checkSelfPermission(requireContext(), Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED;
+        }
+    }
+    
+    private void requestBluetoothPermissions() {
+        Log.d(TAG, "Requesting Bluetooth permissions...");
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
+            String[] permissions = {
+                    Manifest.permission.BLUETOOTH_ADVERTISE,
+                    Manifest.permission.BLUETOOTH_CONNECT,
+                    Manifest.permission.ACCESS_FINE_LOCATION
+            };
+            requestPermissions(permissions, BLUETOOTH_PERMISSION_REQUEST_CODE);
+        } else {
+            String[] permissions = {
+                    Manifest.permission.ACCESS_FINE_LOCATION,
+                    Manifest.permission.ACCESS_COARSE_LOCATION
+            };
+            requestPermissions(permissions, BLUETOOTH_PERMISSION_REQUEST_CODE);
+        }
+    }
+    
+    @Override
+    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions,
+                                         @NonNull int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        
+        if (requestCode == BLUETOOTH_PERMISSION_REQUEST_CODE) {
+            boolean allGranted = true;
+            for (int result : grantResults) {
+                if (result != PackageManager.PERMISSION_GRANTED) {
+                    allGranted = false;
+                    break;
+                }
+            }
+            
+            if (allGranted) {
+                Log.d(TAG, "✅ All Bluetooth permissions granted");
+                updateStatus("Permissions granted! You can now start a session.");
+            } else {
+                Log.e(TAG, "❌ Bluetooth permissions denied");
+                updateStatus("Bluetooth permissions required for attendance system");
+                Toast.makeText(getContext(), "Bluetooth permissions are required for the attendance system", Toast.LENGTH_LONG).show();
+            }
         }
     }
 
@@ -442,14 +537,8 @@ public class TeacherFragment extends Fragment {
                 
                 if (getActivity() != null) {
                     getActivity().runOnUiThread(() -> {
-                        updateStatus("BLE unavailable. QR code method only.");
-                        updateBleStatus("BLE Status: Unavailable", Color.RED);
-                        showProgress(false);
-                        
-                        // Session is still active, just without BLE
-                        isSessionActive = true;
-                        updateButtonStates();
-                        showAttendanceSection(true);
+                        Log.w(TAG, "Simple BLE advertising also failed, activating QR-only mode");
+                        activateQrOnlyMode();
                     });
                 }
             }
@@ -460,14 +549,7 @@ public class TeacherFragment extends Fragment {
             advertiseCallback = simpleCallback; // Update reference for stopping
         } catch (Exception e) {
             Log.e(TAG, "Error starting simple BLE advertising", e);
-            updateStatus("BLE unavailable. QR code method only.");
-            updateBleStatus("BLE Status: Unavailable", Color.RED);
-            showProgress(false);
-            
-            // Session is still active, just without BLE
-            isSessionActive = true;
-            updateButtonStates();
-            showAttendanceSection(true);
+            activateQrOnlyMode();
         }
     }
 
@@ -543,83 +625,6 @@ public class TeacherFragment extends Fragment {
     private void showProgress(boolean show) {
         if (progressBarSession != null) {
             progressBarSession.setVisibility(show ? View.VISIBLE : View.GONE);
-        }
-    }
-
-    private boolean checkPermissions() {
-        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
-            // Android 12+ requires specific Bluetooth permissions
-            String[] permissions = {
-                    Manifest.permission.BLUETOOTH_ADVERTISE,
-                    Manifest.permission.BLUETOOTH_CONNECT,
-                    Manifest.permission.ACCESS_FINE_LOCATION
-            };
-            
-            for (String permission : permissions) {
-                if (ActivityCompat.checkSelfPermission(requireContext(), permission) 
-                        != PackageManager.PERMISSION_GRANTED) {
-                    Log.d(TAG, "Missing permission: " + permission);
-                    return false;
-                }
-            }
-            return true;
-        } else {
-            // Android 11 and below
-            String[] permissions = {
-                    Manifest.permission.ACCESS_FINE_LOCATION,
-                    Manifest.permission.ACCESS_COARSE_LOCATION
-            };
-
-            for (String permission : permissions) {
-                if (ActivityCompat.checkSelfPermission(requireContext(), permission) 
-                        != PackageManager.PERMISSION_GRANTED) {
-                    Log.d(TAG, "Missing permission: " + permission);
-                    return false;
-                }
-            }
-            return true;
-        }
-    }
-
-    private void requestPermissions() {
-        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
-            String[] permissions = {
-                    Manifest.permission.BLUETOOTH_ADVERTISE,
-                    Manifest.permission.BLUETOOTH_CONNECT,
-                    Manifest.permission.ACCESS_FINE_LOCATION
-            };
-            requestPermissions(permissions, BLUETOOTH_PERMISSION_REQUEST_CODE);
-        } else {
-            String[] permissions = {
-                    Manifest.permission.ACCESS_FINE_LOCATION,
-                    Manifest.permission.ACCESS_COARSE_LOCATION
-            };
-            requestPermissions(permissions, BLUETOOTH_PERMISSION_REQUEST_CODE);
-        }
-    }
-
-    @Override
-    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, 
-                                           @NonNull int[] grantResults) {
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
-        
-        if (requestCode == BLUETOOTH_PERMISSION_REQUEST_CODE) {
-            boolean allGranted = true;
-            for (int result : grantResults) {
-                if (result != PackageManager.PERMISSION_GRANTED) {
-                    allGranted = false;
-                    break;
-                }
-            }
-            
-            if (allGranted) {
-                Toast.makeText(getContext(), "Permissions granted. You can now start a session.", 
-                              Toast.LENGTH_SHORT).show();
-            } else {
-                Toast.makeText(getContext(), "Permissions required for BLE functionality", 
-                              Toast.LENGTH_LONG).show();
-                buttonStartSession.setEnabled(false);
-            }
         }
     }
 
